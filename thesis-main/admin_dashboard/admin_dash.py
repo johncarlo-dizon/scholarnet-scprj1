@@ -8,8 +8,9 @@ class AdminDashboard(ctk.CTkToplevel):
     def __init__(self, master_app):
         super().__init__()
         self.master_app = master_app
+        from ui_utils import center_window
         self.title("Super Admin Dashboard")
-        self.geometry("900x600")
+        center_window(self, 1200, 800)
 
         # --- Top toolbar: all-PC power controls ---
         top_bar = ctk.CTkFrame(self, height=50, fg_color="#333333", corner_radius=0)

@@ -1,10 +1,10 @@
 import customtkinter as ctk
 import tkinter.ttk as ttk
-
+from ui_utils import center_window
 def open_history_window(master, login_history_data):
     history_win = ctk.CTkToplevel(master)
     history_win.title("Student Login & Logout History")
-    history_win.geometry("750x450")
+    center_window(history_win,750,450)
    
     lbl_title = ctk.CTkLabel(history_win, text="Lab User Session History", font=ctk.CTkFont(size=16, weight="bold"))
     lbl_title.pack(pady=10)

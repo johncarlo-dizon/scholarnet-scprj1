@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from database import db
-
+from ui_utils import center_window
 def open_inbox_window(master_dashboard):
     if hasattr(master_dashboard, 'current_inbox_win') and master_dashboard.current_inbox_win:
         try:
@@ -12,8 +12,8 @@ def open_inbox_window(master_dashboard):
     master_dashboard.current_inbox_win = inbox_win
 
     inbox_win.title("Teacher's Student Activity Inbox")
-    inbox_win.geometry("600x450")
-
+    center_window(inbox_win, 600, 450)
+    
     ctk.CTkLabel(inbox_win, text="Real-time Student Activity Inbox", font=("Arial", 16, "bold")).pack(pady=10)
 
     frame = ctk.CTkScrollableFrame(inbox_win, width=550, height=320)

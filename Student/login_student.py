@@ -13,7 +13,7 @@ from PIL import Image, ImageTk
 import screen_sender
 from student_webcam_window import StudentWebcamOverlay
 import pygetwindow as gw
-
+from ui_utils import center_window
 from network_config import TEACHER_IP, LOG_PORT, LISTENER_PORT, BROADCAST_PORT
 USER_FILE = "users.json"
 
@@ -88,7 +88,7 @@ class RegisterWindow(ctk.CTkToplevel):
         self.teacher_ip = teacher_ip
         self.log_port = log_port
         self.title("Student Registration")
-        self.geometry("400x680")
+        center_window(self, 400, 680)
         self.attributes("-topmost", True)
 
         ctk.CTkLabel(self, text="Create Student Account", font=("Arial", 20, "bold")).pack(pady=20)
@@ -197,6 +197,8 @@ class LabSelectionDialog(ctk.CTkToplevel):
         self.attributes("-topmost", True)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", lambda: None)  # must pick a lab, can't just close this
+        self.bind_all("<Control-Shift-F4>", lambda e: self.destroy())
+        self.focus_force()
 
         ctk.CTkLabel(self, text="Which lab are you in?", font=("Arial", 16, "bold")).pack(pady=20)
 
@@ -359,7 +361,9 @@ class LoginApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Student Login")
-        self.geometry("400x520")
+        self.attributes("-fullscreen", True)
+        self.attributes("-topmost", True)
+        self.protocol("WM_DELETE_WINDOW", lambda: None) 
         
         self.active_lock = None
         self.demo_window = None
@@ -374,7 +378,7 @@ class LoginApp(ctk.CTk):
         threading.Thread(target=screen_sender.start_control_listener, daemon=True).start()
         threading.Thread(target=self.track_active_window, daemon=True).start()
         
-        ctk.CTkLabel(self, text="ScholarNet Login", font=("Arial", 25, "bold")).pack(pady=20)
+        ctk.CTkLabel(self, text="CompHub Login", font=("Arial", 25, "bold")).pack(pady=20)
 
         ctk.CTkLabel(self, text="Select Teacher:").pack()
         self.teacher_map = {}
@@ -521,7 +525,7 @@ class LoginApp(ctk.CTk):
     def show_restricted_warning(self, window_text, category):
         warn = ctk.CTkToplevel(self)
         warn.title("WARNING")
-        warn.geometry("450x220")
+        center_window(warn, 450, 220)
         warn.attributes("-topmost", True)
         warn.configure(fg_color="#8b0000")
         ctk.CTkLabel(warn, text="⚠ RESTRICTED SITE DETECTED", font=("Arial", 18, "bold"), text_color="white").pack(pady=15)
@@ -594,7 +598,7 @@ class LoginApp(ctk.CTk):
     def show_teacher_message(self, message):
         msg_win = ctk.CTkToplevel(self)
         msg_win.title("Mensahe mula sa Guro")
-        msg_win.geometry("400x200")
+        center_window(msg_win, 400, 200)
         msg_win.attributes("-topmost", True)
         msg_win.grab_set()
         

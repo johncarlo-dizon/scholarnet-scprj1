@@ -1,10 +1,10 @@
 import customtkinter as ctk
 from .network_utils import send_command
-
+from ui_utils import center_window
 def open_text_message_dialog(master):
     dialog = ctk.CTkToplevel(master)
     dialog.title("Send Text Message to Students")
-    dialog.geometry("400x250")
+    center_window(dialog, 400, 250)
     dialog.attributes("-topmost", True)
     ctk.CTkLabel(dialog, text="I-type ang mensahe para sa lahat ng estudyante:", font=("Arial", 12, "bold")).pack(pady=15)
     msg_entry = ctk.CTkTextbox(dialog, width=350, height=100)

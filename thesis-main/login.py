@@ -24,8 +24,9 @@ class LoginApp(ctk.CTk):
         super().__init__()
         db.init_db()
         db.seed_defaults()
-        self.title("ScholarNet Login - Teacher/Admin")
-        self.geometry("350x450")
+        from ui_utils import center_window
+        self.title("CompHub Login - Teacher/Admin")
+        center_window(self, 700, 500)
         self.USERS = {
             "student": {"password": "student123", "role": "Student"},
             "teacher": {"password": "teacher123", "role": "Teacher"},
@@ -46,7 +47,7 @@ class LoginApp(ctk.CTk):
         threading.Thread(target=self.start_log_listener, daemon=True).start()
         threading.Thread(target=self.broadcast_stream_server, daemon=True).start()
         
-        ctk.CTkLabel(self, text="ScholarNet Login", font=("Arial", 20, "bold")).pack(pady=20)
+        ctk.CTkLabel(self, text="CompHub Login", font=("Arial", 20, "bold")).pack(pady=20)
 
         ctk.CTkLabel(self, text="Select Computer Lab:").pack()
         labs = db.get_all_labs()

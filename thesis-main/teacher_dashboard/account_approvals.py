@@ -1,10 +1,10 @@
 import customtkinter as ctk
 from database import db
-
+from ui_utils import center_window
 def open_account_approvals(master_teacher):
     window = ctk.CTkToplevel(master_teacher)
     window.title("Account Approvals Management")
-    window.geometry("750x550")
+    center_window(window, 750, 550)
     window.attributes("-topmost", True)
 
     ctk.CTkLabel(window, text="Student Account Requests", font=("Arial", 18, "bold")).pack(pady=15)

@@ -13,7 +13,7 @@ from PIL import Image
 from .network_utils import send_command
 from .screen_receiver import ScreenViewer
 from network_config import BROADCAST_PORT
-# Import hiwalay na modules mula sa kaparehong folder
+from ui_utils import center_window
 from .history_window import open_history_window
 from .student_cards import setup_grid_layout, create_student_card
 
@@ -35,8 +35,9 @@ class TeacherDashboard(ctk.CTkToplevel):
         self.btn_fullscreen_demo = None  
         self.student_histories = {} 
         
+        from ui_utils import center_window
         self.title("Teacher Dashboard")
-        self.geometry("1200x800")
+        center_window(self, 1200, 800)
         
         # --- TOP TOOLBAR ---
         self.top_toolbar = ctk.CTkFrame(self, height=65, fg_color="#333333", corner_radius=0)
@@ -123,7 +124,7 @@ class TeacherDashboard(ctk.CTkToplevel):
     def open_reset_password_dialog(self):
         dialog = ctk.CTkToplevel(self)
         dialog.title("Reset Student Password")
-        dialog.geometry("350x220")
+        center_window(dialog, 350, 220)
         dialog.attributes("-topmost", True)
 
         ctk.CTkLabel(dialog, text="Reset Student Password", font=("Arial", 14, "bold")).pack(pady=15)
@@ -312,7 +313,7 @@ class TeacherDashboard(ctk.CTkToplevel):
     def open_text_message_dialog(self):
         dialog = ctk.CTkToplevel(self)
         dialog.title("Send Text Message to Students")
-        dialog.geometry("400x250")
+        center_window(dialog, 400, 250)
         dialog.attributes("-topmost", True)
         ctk.CTkLabel(dialog, text="I-type ang mensahe para sa lahat ng estudyante:", font=("Arial", 12, "bold")).pack(pady=15)
         msg_entry = ctk.CTkTextbox(dialog, width=350, height=100)
@@ -330,7 +331,7 @@ class TeacherDashboard(ctk.CTkToplevel):
     def open_single_text_message_dialog(self, ip):
         dialog = ctk.CTkToplevel(self)
         dialog.title(f"Send Message to {ip}")
-        dialog.geometry("400x250")
+        center_window(dialog, 400, 250)
         dialog.attributes("-topmost", True)
         ctk.CTkLabel(dialog, text=f"I-type ang mensahe para sa PC ({ip}):", font=("Arial", 12, "bold")).pack(pady=15)
         msg_entry = ctk.CTkTextbox(dialog, width=350, height=100)
@@ -347,7 +348,7 @@ class TeacherDashboard(ctk.CTkToplevel):
     def open_website_dialog(self):
         dialog = ctk.CTkToplevel(self)
         dialog.title("Open Website on All Students")
-        dialog.geometry("400x200")
+        center_window(dialog, 400, 200)
         dialog.attributes("-topmost", True)
         ctk.CTkLabel(dialog, text="I-type ang URL (hal. https://www.facebook.com):", font=("Arial", 12, "bold")).pack(pady=15)
         url_entry = ctk.CTkEntry(dialog, width=350, placeholder_text="https://...")
@@ -365,7 +366,7 @@ class TeacherDashboard(ctk.CTkToplevel):
     def open_single_website_dialog(self, ip):
         dialog = ctk.CTkToplevel(self)
         dialog.title(f"Open Website on {ip}")
-        dialog.geometry("400x200")
+        center_window(dialog, 400, 200)
         dialog.attributes("-topmost", True)
         ctk.CTkLabel(dialog, text=f"I-type ang URL para sa PC ({ip}):", font=("Arial", 12, "bold")).pack(pady=15)
         url_entry = ctk.CTkEntry(dialog, width=350, placeholder_text="https://...")
