@@ -84,9 +84,11 @@ def seed_defaults():
     on a fresh database. Safe to call every startup — does nothing if they
     already exist."""
     if not get_user_by_username("admin"):
-        create_staff_user("admin", "admin123", "admin", full_name="Administrator")
+        create_staff_user("admin", "admin", "admin", full_name="Administrator")
     if not get_user_by_username("teacher"):
-        create_staff_user("teacher", "teacher123", "teacher", full_name="Default Teacher")
+        create_staff_user("teacher", "teacher", "teacher", full_name="Sir Peter")
+    if not get_user_by_username("student"):
+        create_student_user("student", "student", full_name="Patwick")
 
 
 def create_staff_user(username, password, role, full_name=None):
@@ -98,6 +100,18 @@ def create_staff_user(username, password, role, full_name=None):
             """INSERT INTO users (username, password_hash, password_salt, role, status, full_name)
                VALUES (?, ?, ?, ?, 'approved', ?)""",
             (username, pw_hash, salt, role, full_name),
+        )
+
+
+def create_student_user(username, password, full_name=None):
+    """Create an approved student account for local/default use."""
+    pw_hash, salt = _hash_password(password)
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO users
+               (username, password_hash, password_salt, role, status, full_name)
+               VALUES (?, ?, ?, 'student', 'approved', ?)""",
+            (username, pw_hash, salt, full_name),
         )
 
 

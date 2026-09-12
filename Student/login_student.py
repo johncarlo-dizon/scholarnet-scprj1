@@ -89,7 +89,9 @@ class RegisterWindow(ctk.CTkToplevel):
         self.log_port = log_port
         self.title("Student Registration")
         center_window(self, 400, 680)
+        self.transient(master)
         self.attributes("-topmost", True)
+        self.protocol("WM_DELETE_WINDOW", self.close_window)
 
         ctk.CTkLabel(self, text="Create Student Account", font=("Arial", 20, "bold")).pack(pady=20)
 
@@ -121,6 +123,14 @@ class RegisterWindow(ctk.CTkToplevel):
         ctk.CTkButton(self, text="Submit Registration", fg_color="green", command=self.submit_reg).pack(pady=20)
         self.status_lbl = ctk.CTkLabel(self, text="", text_color="white", wraplength=350)
         self.status_lbl.pack()
+
+        self.lift()
+        self.focus_force()
+        self.grab_set()
+
+    def close_window(self):
+        self.grab_release()
+        self.destroy()
 
     def fetch_teachers(self):
         try:
@@ -255,7 +265,7 @@ class StudentDashboard(ctk.CTkToplevel):
         self.username = username
         self.master_app = master_app
         self.title(f"Student Portal - {self.username}")
-        self.geometry("500x450")
+        center_window(self, 500, 450)
         
         tabview = ctk.CTkTabview(self)
         tabview.pack(expand=True, fill="both", padx=20, pady=20)
@@ -356,6 +366,7 @@ class StudentDashboard(ctk.CTkToplevel):
         self.master_app.notify_teacher("LOGOUT", self.username)
         self.destroy()
         self.master_app.deiconify()        
+        self.master_app.after(100, self.master_app.fetch_teachers_and_labs)
 
 class LoginApp(ctk.CTk):
     def __init__(self):
