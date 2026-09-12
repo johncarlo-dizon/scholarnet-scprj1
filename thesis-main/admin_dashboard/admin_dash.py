@@ -345,12 +345,15 @@ class AdminDashboard(ctk.CTkToplevel):
                         command=lambda bid=record["id"]: self.return_item_ui(bid)).pack(side="right", padx=10)
 
 
-    def show_context_menu(self, event, ip, name):
+    def show_context_menu(self, event, ip, name, role="student"):
         context_menu = tk.Menu(self, tearoff=0, bg="#f0f0f0", fg="black", font=("Arial", 10))
         context_menu.add_command(label="Remote View", command=lambda: self.open_full_view(ip, is_control=False))
-        context_menu.add_separator()
-        context_menu.add_command(label="Lock", command=lambda: send_command(ip, "LOCK"))
-        context_menu.add_command(label="Unlock", command=lambda: send_command(ip, "UNLOCK"))
+
+        if role != "teacher":
+            context_menu.add_separator()
+            context_menu.add_command(label="Lock", command=lambda: send_command(ip, "LOCK"))
+            context_menu.add_command(label="Unlock", command=lambda: send_command(ip, "UNLOCK"))
+
         try:
             context_menu.tk_popup(event.x_root, event.y_root)
         finally:

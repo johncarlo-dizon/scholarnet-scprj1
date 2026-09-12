@@ -8,7 +8,7 @@ python login_student.py
 pip install tf-keras
 
 
-
+pip install -r requirements.txt
 python -m venv venv
 venv\Scripts\activate
 pip install customtkinter opencv-python numpy pyautogui pillow mss deepface tensorflow

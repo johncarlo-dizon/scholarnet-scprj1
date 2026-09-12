@@ -32,12 +32,12 @@ def create_student_card(self, ip, index, pc_number, full_name, expression="Waiti
     lbl_preview = ctk.CTkLabel(screen_preview, text=f"{label}\n(Waiting for Live Stream...)", text_color="#888888", font=ctk.CTkFont(size=11))
     lbl_preview.pack(fill="both", expand=True)
 
-    lbl_preview.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label))
-    screen_preview.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label))
+    lbl_preview.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label, role))
+    screen_preview.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label, role))
 
     lbl_info_text = ctk.CTkLabel(pc_card, text=label, font=ctk.CTkFont(size=12, weight="bold"), text_color=("black", "white"))
     lbl_info_text.pack(pady=(0, 10))
-    lbl_info_text.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label))
+    lbl_info_text.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label, role))
 
     self.student_cards[ip] = {
         "card": pc_card,
