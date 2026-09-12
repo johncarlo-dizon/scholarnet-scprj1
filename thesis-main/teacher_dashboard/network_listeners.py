@@ -7,15 +7,8 @@ from PIL import Image, ImageTk
 from network_config import TEACHER_IP
 
 
-# NOTE: the old start_log_listener() that lived in this file has been removed.
-# login.py's own LoginApp.start_log_listener already owns port 5001 and handles
-# LOGIN_CHECK, REGISTER, GET_TEACHERS, CHANGE_PWD, GET_HISTORY, LOGIN, LOGOUT,
-# EXPRESSION, and ACTIVITY. Having a second listener here trying to bind the
-# same port was silently failing every time and doing nothing.
-
-
 def handle_student_expression(self, expression_text, sender_ip):
-    """self here is always the LoginApp instance."""
+    """self is always the LoginApp instance."""
     from .student_cards import build_card_label
     try:
         parts = expression_text.split("|")
@@ -29,21 +22,29 @@ def handle_student_expression(self, expression_text, sender_ip):
         if dashboard and sender_ip in dashboard.student_cards:
             card_info = dashboard.student_cards[sender_ip]
             card_info["expression"] = expression
-            new_label = build_card_label(card_info["pc_number"], card_info["full_name"], expression)
+            new_label = build_card_label(card_info["pc_number"], card_info["full_name"], expression, card_info.get("role", "student"))
             if "info_label" in card_info and card_info["info_label"].winfo_exists():
                 card_info["info_label"].configure(text=new_label)
     except Exception as e:
         print(f"[ERROR parsing expression]: {e}")
 
 
-def update_student_card_name(self, username, ip):
-    """self here is always the LoginApp instance."""
+def update_student_card_name(self, username, ip, role="student"):
+    """self is always the LoginApp instance. Updates persistent records and,
+    if a dashboard is open, creates/updates the visible card. Lab filtering
+    only applies to Teacher dashboards viewing students — Admin's monitor
+    dashboard (is_admin_monitor=True) always shows everyone, students and
+    teachers alike."""
     from database import db
-    from .student_cards import build_card_label, create_student_card
+    from .student_cards import create_student_card, build_card_label
 
     pc_number = ip.split('.')[-1]
-    user = db.get_user_by_username(username)
-    full_name = (user["full_name"] if user and user.get("full_name") else username)
+
+    if role == "teacher":
+        full_name = username
+    else:
+        user = db.get_user_by_username(username)
+        full_name = (user["full_name"] if user and user.get("full_name") else username)
 
     if not hasattr(self, "student_display_names"):
         self.student_display_names = {}
@@ -53,60 +54,86 @@ def update_student_card_name(self, username, ip):
         self.ip_to_username = {}
     self.ip_to_username[ip] = username
 
+    if not hasattr(self, "entity_roles"):
+        self.entity_roles = {}
+    self.entity_roles[ip] = role
+
     dashboard = getattr(self, "active_teacher_dashboard", None)
     if dashboard is None:
         return
 
-    teacher_lab_id = getattr(self, "current_teacher_lab_id", None)
-    student_lab_id = user["lab_id"] if user else None
+    is_admin_monitor = getattr(dashboard, "is_admin_monitor", False)
 
-    if teacher_lab_id is not None and student_lab_id != teacher_lab_id:
-        if ip in dashboard.student_cards:
-            try:
-                card_info = dashboard.student_cards[ip]
-                if "frame" in card_info and card_info["frame"].winfo_exists():
-                    card_info["frame"].destroy()
-            except Exception:
-                pass
-            del dashboard.student_cards[ip]
-        return
+    if not is_admin_monitor:
+        # This is a Teacher dashboard: never show other teachers, and only
+        # show students who match this teacher's currently selected lab.
+        if role == "teacher":
+            return
+        from database import db as _db
+        teacher_lab_id = getattr(self, "current_teacher_lab_id", None)
+        user = _db.get_user_by_username(username)
+        student_lab_id = user["lab_id"] if user else None
+        if teacher_lab_id is not None and student_lab_id != teacher_lab_id:
+            if ip in dashboard.student_cards:
+                try:
+                    card_info = dashboard.student_cards[ip]
+                    if "frame" in card_info and card_info["frame"].winfo_exists():
+                        card_info["frame"].destroy()
+                except Exception:
+                    pass
+                del dashboard.student_cards[ip]
+            return
 
     if ip not in dashboard.student_cards or "frame" not in dashboard.student_cards[ip] \
             or not dashboard.student_cards[ip]["frame"].winfo_exists():
         expression = getattr(self, "student_expressions", {}).get(ip, "Waiting...")
-        create_student_card(dashboard, ip, len(dashboard.student_cards), pc_number, full_name, expression)
+        create_student_card(dashboard, ip, len(dashboard.student_cards), pc_number, full_name, expression, role)
     else:
         card_info = dashboard.student_cards[ip]
         card_info["pc_number"] = pc_number
         card_info["full_name"] = full_name
-        new_label = build_card_label(pc_number, full_name, card_info["expression"])
+        new_label = build_card_label(pc_number, full_name, card_info["expression"], role)
         if "info_label" in card_info and card_info["info_label"].winfo_exists():
             card_info["info_label"].configure(text=new_label)
 
 
 def hydrate_dashboard(self, dashboard):
-    """Called once when a TeacherDashboard opens, to rebuild cards for
-    students already connected — filtered to this teacher's current lab."""
+    """Called once when a dashboard opens, to rebuild cards for whoever is
+    already connected. Teacher dashboards: students only, filtered to the
+    teacher's current lab. Admin's monitor dashboard (is_admin_monitor=True):
+    everyone, students and teachers, no lab filtering."""
     from database import db
     from .student_cards import create_student_card
 
     frames = getattr(self, "latest_frames", {})
     expressions = getattr(self, "student_expressions", {})
     ip_to_username = getattr(self, "ip_to_username", {})
+    roles = getattr(self, "entity_roles", {})
     teacher_lab_id = getattr(self, "current_teacher_lab_id", None)
+    is_admin_monitor = getattr(dashboard, "is_admin_monitor", False)
 
     for ip in getattr(self, "connected_students", {}).keys():
         username = ip_to_username.get(ip)
-        user = db.get_user_by_username(username) if username else None
+        role = roles.get(ip, "student")
 
-        if user and teacher_lab_id is not None and user["lab_id"] != teacher_lab_id:
-            continue
+        if not is_admin_monitor:
+            if role == "teacher":
+                continue
+            user = db.get_user_by_username(username) if username else None
+            if user and teacher_lab_id is not None and user["lab_id"] != teacher_lab_id:
+                continue
+            full_name = (user["full_name"] if user and user.get("full_name") else (username or "Unknown"))
+        else:
+            if role == "teacher":
+                full_name = username or "Unknown Teacher"
+            else:
+                user = db.get_user_by_username(username) if username else None
+                full_name = (user["full_name"] if user and user.get("full_name") else (username or "Unknown"))
 
         pc_number = ip.split('.')[-1]
-        full_name = (user["full_name"] if user and user.get("full_name") else (username or "Unknown"))
         expression = expressions.get(ip, "Waiting...")
 
-        create_student_card(dashboard, ip, len(dashboard.student_cards), pc_number, full_name, expression)
+        create_student_card(dashboard, ip, len(dashboard.student_cards), pc_number, full_name, expression, role)
 
         if ip in frames:
             update_thumbnail_frame_for(dashboard, ip, frames[ip])
@@ -120,8 +147,6 @@ def update_thumbnail_frame_for(dashboard, ip, img_tk):
 
 
 def update_thumbnail_frame(self, ip, img_tk):
-    """self here is always the LoginApp instance. Always remembers the latest
-    frame persistently, and pushes it into the live dashboard if one is open."""
     if not hasattr(self, "latest_frames"):
         self.latest_frames = {}
     self.latest_frames[ip] = img_tk
@@ -132,8 +157,6 @@ def update_thumbnail_frame(self, ip, img_tk):
 
 
 def record_login(self, name, ip):
-    """self here is always the LoginApp instance — login_history_data now
-    lives there so it survives dashboard close/reopen."""
     login_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for item in self.login_history_data:
         if item["ip"] == ip and item["logout"] == "Active / Online":
@@ -157,10 +180,25 @@ def record_logout(self, ip):
             break
 
 
+def _parse_handshake(raw_user_info, fallback_ip):
+    """Returns (username, role) parsed from 'NAME: x|ROLE:y' or 'NAME: x'."""
+    username = f"User-{fallback_ip}"
+    role = "student"
+    if "NAME:" in raw_user_info:
+        after_name = raw_user_info.split("NAME:", 1)[1]
+        if "|ROLE:" in after_name:
+            name_part, role_part = after_name.split("|ROLE:", 1)
+            username = name_part.strip() or username
+            role = role_part.strip().lower() or "student"
+        else:
+            username = after_name.split("\n")[0].strip() or username
+    return username, role
+
+
 def start_persistent_stream_listeners(self):
-    """Call this exactly ONCE, from LoginApp.__init__. self is the LoginApp
+    """Call exactly ONCE, from LoginApp.__init__. self is the LoginApp
     instance and lives for the whole program, so these listeners never get
-    torn down and re-bound when a TeacherDashboard window opens/closes."""
+    torn down/re-bound when a dashboard window opens/closes."""
 
     if not hasattr(self, "connected_students"):
         self.connected_students = {}
@@ -174,30 +212,28 @@ def start_persistent_stream_listeners(self):
         self.login_history_data = []
     if not hasattr(self, "active_teacher_dashboard"):
         self.active_teacher_dashboard = None
+    if not hasattr(self, "entity_roles"):
+        self.entity_roles = {}
+    if not hasattr(self, "ip_to_username"):
+        self.ip_to_username = {}
 
-    # --- Main Stream Listener (Port 9998) ---
     def handle_client(conn, addr):
         student_ip = addr[0]
         self.connected_students[student_ip] = conn
-        display_name = f"User - {student_ip}"
 
+        username = f"User-{student_ip}"
+        role = "student"
         try:
             conn.settimeout(3.0)
             raw_user_info = conn.recv(128).decode('utf-8', errors='ignore').strip()
             conn.settimeout(None)
-
-            if "NAME:" in raw_user_info:
-                parts = raw_user_info.split("NAME:")
-                if len(parts) > 1:
-                    actual_username = parts[1].split("\n")[0].strip()
-                    if actual_username:
-                        display_name = f"{actual_username} - PC {student_ip.split('.')[-1]}"
+            username, role = _parse_handshake(raw_user_info, student_ip)
         except Exception:
             conn.settimeout(None)
 
-        clean_username = display_name.split(" - ")[0]
         if hasattr(self, 'after'):
-            self.after(0, lambda u=clean_username, ip=student_ip: update_student_card_name(self, u, ip))
+            self.after(0, lambda u=username, ip=student_ip, r=role: update_student_card_name(self, u, ip, r))
+            display_name = f"{username} - PC {student_ip.split('.')[-1]}" if role == "student" else f"TEACHER - {username}"
             self.after(0, lambda: record_login(self, display_name, student_ip))
 
         try:
@@ -259,7 +295,6 @@ def start_persistent_stream_listeners(self):
 
     threading.Thread(target=stream_listener, daemon=True).start()
 
-    # --- Remote View Listener (Port 9997) ---
     def handle_remote_client(conn, addr):
         student_ip = addr[0]
         try:

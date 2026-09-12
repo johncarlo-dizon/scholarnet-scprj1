@@ -7,9 +7,9 @@ import pyautogui
 import os
 import json
 
-pyautogui.FAILSAFE = False
+from network_config import ADMIN_IP
 
-ADMIN_IP = "192.168.100.251"
+pyautogui.FAILSAFE = False
 
 def get_current_username():
     try:

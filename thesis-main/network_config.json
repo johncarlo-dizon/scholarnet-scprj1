@@ -1,5 +1,6 @@
 {
     "teacher_ip": "127.0.0.1",
+    "admin_ip": "127.0.0.1",
     "log_port": 5001,
     "command_port": 5050,
     "control_port": 9999,

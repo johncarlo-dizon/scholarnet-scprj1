@@ -4,6 +4,10 @@ import socket
 from database import db
 from teacher_dashboard.network_utils import send_command
 from network_config import STUDENT_PC_IP
+import tkinter as tk
+from teacher_dashboard.network_listeners import hydrate_dashboard
+from teacher_dashboard.screen_receiver import ScreenViewer
+
 class AdminDashboard(ctk.CTkToplevel):
     def __init__(self, master_app):
         super().__init__()
@@ -16,21 +20,36 @@ class AdminDashboard(ctk.CTkToplevel):
         top_bar = ctk.CTkFrame(self, height=50, corner_radius=0)
         top_bar.pack(side="top", fill="x")
 
-        ctk.CTkButton(top_bar, text="Sleep All", fg_color="#b58900", hover_color="#856300",
-                      command=self.sleep_all).pack(side="left", padx=5, pady=8)
-        ctk.CTkButton(top_bar, text="Restart All", fg_color="#1f6aa5", hover_color="#144870",
-                      command=self.restart_all).pack(side="left", padx=5, pady=8)
-        ctk.CTkButton(top_bar, text="Shutdown All", fg_color="#a83232", hover_color="#c94444",
-                      command=self.shutdown_all).pack(side="left", padx=5, pady=8)
+        ctk.CTkLabel(top_bar, text="Student PCs only:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(15, 5))
+        ctk.CTkButton(top_bar, text="Sleep All", fg_color="#b58900", hover_color="#856300", width=110,
+                    command=self.sleep_all).pack(side="left", padx=5, pady=8)
+        ctk.CTkButton(top_bar, text="Restart All", fg_color="#1f6aa5", hover_color="#144870", width=110,
+                    command=self.restart_all).pack(side="left", padx=5, pady=8)
+        ctk.CTkButton(top_bar, text="Shutdown All", fg_color="#a83232", hover_color="#c94444", width=110,
+                    command=self.shutdown_all).pack(side="left", padx=5, pady=8)
 
         tabview = ctk.CTkTabview(self)
         tabview.pack(expand=True, fill="both", padx=20, pady=20)
         
+        tabview.add("Monitoring")
         tabview.add("Logs & History")
         tabview.add("User Management")
         tabview.add("Manage Teachers")
         tabview.add("Lab Monitoring")
         tabview.add("Inventory")
+
+
+        # --- Monitoring Tab: shows BOTH students and the teacher, live ---
+        self.student_cards = {}
+        self.active_viewers = {}
+        self.is_admin_monitor = True
+
+        monitor_tab = tabview.tab("Monitoring")
+        self.grid_frame = ctk.CTkScrollableFrame(monitor_tab, label_text="All Connected PCs (Students + Teacher)", height=400)
+        self.grid_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        self.grid_frame.grid_columnconfigure((0, 1, 2), weight=1)
+
+        hydrate_dashboard(self.master_app, self)
         
         # --- Logs & History Tab ---
         self.search_entry = ctk.CTkEntry(tabview.tab("Logs & History"), placeholder_text="Search student name...")
@@ -229,9 +248,9 @@ class AdminDashboard(ctk.CTkToplevel):
 
     def _get_all_connected_ips(self):
         connected = getattr(self.master_app, "connected_students", {})
-        print(f"[DEBUG _get_all_connected_ips] connected_students = {connected}")
-        ips = list(connected.keys())
-        print(f"[DEBUG _get_all_connected_ips] IPs found: {ips}")
+        roles = getattr(self.master_app, "entity_roles", {})
+        ips = [ip for ip in connected.keys() if roles.get(ip, "student") != "teacher"]
+        print(f"[DEBUG _get_all_connected_ips] student-only IPs: {ips}")
         return ips
 
     def sleep_all(self):
@@ -324,3 +343,34 @@ class AdminDashboard(ctk.CTkToplevel):
             ctk.CTkLabel(frm, text=text, anchor="w").pack(side="left", padx=10, pady=6, fill="x", expand=True)
             ctk.CTkButton(frm, text="Mark Returned", fg_color="green", width=110,
                         command=lambda bid=record["id"]: self.return_item_ui(bid)).pack(side="right", padx=10)
+
+
+    def show_context_menu(self, event, ip, name):
+        context_menu = tk.Menu(self, tearoff=0, bg="#f0f0f0", fg="black", font=("Arial", 10))
+        context_menu.add_command(label="Remote View", command=lambda: self.open_full_view(ip, is_control=False))
+        context_menu.add_separator()
+        context_menu.add_command(label="Lock", command=lambda: send_command(ip, "LOCK"))
+        context_menu.add_command(label="Unlock", command=lambda: send_command(ip, "UNLOCK"))
+        try:
+            context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            context_menu.grab_release()
+
+    def open_full_view(self, student_ip, is_control=False):
+        try:
+            if student_ip in self.active_viewers:
+                try:
+                    self.active_viewers[student_ip].destroy()
+                except Exception:
+                    pass
+            viewer = ScreenViewer(student_ip, control_mode=is_control)
+            self.active_viewers[student_ip] = viewer
+
+            def on_viewer_close():
+                if student_ip in self.active_viewers:
+                    del self.active_viewers[student_ip]
+                viewer.destroy()
+
+            viewer.protocol("WM_DELETE_WINDOW", on_viewer_close)
+        except Exception as e:
+            print(f"Error sa pagbubukas ng ScreenViewer: {e}")

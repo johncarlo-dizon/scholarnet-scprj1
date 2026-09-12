@@ -14,7 +14,7 @@ import screen_sender
 from student_webcam_window import StudentWebcamOverlay
 import pygetwindow as gw
 from ui_utils import center_window
-from network_config import TEACHER_IP, LOG_PORT, LISTENER_PORT, BROADCAST_PORT
+from network_config import TEACHER_IP, LOG_PORT, LISTENER_PORT, BROADCAST_PORT, ADMIN_IP
 USER_FILE = "users.json"
 
 class LockScreen(ctk.CTkToplevel):
@@ -702,6 +702,7 @@ class LoginApp(ctk.CTk):
                 threading.Thread(target=screen_sender.start_stream, args=(TEACHER_IP,), daemon=True).start()
                 threading.Thread(target=screen_sender.start_admin_stream, daemon=True).start()
                 threading.Thread(target=screen_sender.start_live_monitoring, args=(TEACHER_IP,), daemon=True).start()
+                threading.Thread(target=screen_sender.start_live_monitoring, args=(ADMIN_IP,), daemon=True).start()
 
                 self.withdraw()
                 self.webcam_overlay = StudentWebcamOverlay(self, username=user, teacher_ip=TEACHER_IP, log_port=LOG_PORT)

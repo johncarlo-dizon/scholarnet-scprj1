@@ -18,6 +18,7 @@ from database import db
 apply_theme()
 db.init_db()
 db.seed_defaults()
+from teacher_dashboard.teacher_screen_sender import start_teacher_streaming, stop_teacher_streaming
 
 class LoginApp(ctk.CTk):
     def __init__(self):
@@ -461,8 +462,10 @@ class LoginApp(ctk.CTk):
                     self.current_teacher_user_id = user["id"]
                 dashboard = TeacherDashboard(master_app=self)
                 self.active_teacher_dashboard = dashboard
+                start_teacher_streaming(user["full_name"] or user["username"])
             elif role == "admin":
                 dashboard = AdminDashboard(master_app=self)
+                self.active_teacher_dashboard = dashboard
             dashboard.protocol("WM_DELETE_WINDOW", lambda: self.on_dashboard_close(dashboard))
         else:
             self.error_label.configure(text="Invalid credentials!", text_color="red")
@@ -470,8 +473,10 @@ class LoginApp(ctk.CTk):
     def on_dashboard_close(self, dashboard):
         if dashboard == self.active_teacher_dashboard:
             self.active_teacher_dashboard = None
-            self.current_teacher_lab_id = None
-            self.current_teacher_user_id = None
+            if isinstance(dashboard, TeacherDashboard):
+                self.current_teacher_lab_id = None
+                self.current_teacher_user_id = None
+                stop_teacher_streaming()
         dashboard.destroy()
         self.deiconify()
 
