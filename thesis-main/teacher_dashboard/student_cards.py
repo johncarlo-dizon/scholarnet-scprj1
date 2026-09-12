@@ -18,10 +18,10 @@ def create_student_card(self, ip, index, pc_number, full_name, expression="Waiti
 
     label = build_card_label(pc_number, full_name, expression)
 
-    pc_card = ctk.CTkFrame(self.grid_frame, fg_color="#242424", corner_radius=10, border_width=1, border_color="#383838")
+    pc_card = ctk.CTkFrame(self.grid_frame, corner_radius=10, border_width=1)
     pc_card.grid(row=row, column=col, padx=12, pady=12, sticky="nsew")
 
-    screen_preview = ctk.CTkFrame(pc_card, height=160, fg_color="#181818", corner_radius=6)
+    screen_preview = ctk.CTkFrame(pc_card, height=160, corner_radius=6)
     screen_preview.pack(fill="x", padx=10, pady=10)
     screen_preview.pack_propagate(False)
 
@@ -31,7 +31,7 @@ def create_student_card(self, ip, index, pc_number, full_name, expression="Waiti
     lbl_preview.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label))
     screen_preview.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label))
 
-    lbl_info_text = ctk.CTkLabel(pc_card, text=label, font=ctk.CTkFont(size=12, weight="bold"), text_color="#ffffff")
+    lbl_info_text = ctk.CTkLabel(pc_card, text=label, font=ctk.CTkFont(size=12, weight="bold"), text_color=("black", "white"))
     lbl_info_text.pack(pady=(0, 10))
     lbl_info_text.bind("<Button-3>", lambda e: self.show_context_menu(e, ip, label))
 

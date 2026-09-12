@@ -13,7 +13,7 @@ class AdminDashboard(ctk.CTkToplevel):
         center_window(self, 1200, 800)
 
         # --- Top toolbar: all-PC power controls ---
-        top_bar = ctk.CTkFrame(self, height=50, fg_color="#333333", corner_radius=0)
+        top_bar = ctk.CTkFrame(self, height=50, corner_radius=0)
         top_bar.pack(side="top", fill="x")
 
         ctk.CTkButton(top_bar, text="Sleep All", fg_color="#b58900", hover_color="#856300",

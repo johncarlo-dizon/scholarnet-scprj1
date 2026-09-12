@@ -40,7 +40,7 @@ class TeacherDashboard(ctk.CTkToplevel):
         center_window(self, 1200, 800)
         
         # --- TOP TOOLBAR ---
-        self.top_toolbar = ctk.CTkFrame(self, height=65, fg_color="#333333", corner_radius=0)
+        self.top_toolbar = ctk.CTkFrame(self, height=65, corner_radius=0)
         self.top_toolbar.pack(side="top", fill="x")
         
         toolbar_items = [
@@ -60,21 +60,23 @@ class TeacherDashboard(ctk.CTkToplevel):
         ]
         
         for btn_text, btn_command in toolbar_items:
-            fg_col = "#1f6aa5" if btn_text in ("Refresh", "Inbox") else "#383838"
-            hover_col = "#144870" if btn_text in ("Refresh", "Inbox") else "#505050"
-            
-            btn = ctk.CTkButton(
-                self.top_toolbar,
+            is_accent = btn_text in ("Refresh", "Inbox")
+
+            btn_kwargs = dict(
                 text=btn_text,
                 image=None,
                 compound="top",
                 width=75,
                 height=50,
-                fg_color=fg_col,
-                hover_color=hover_col,
                 font=ctk.CTkFont(size=10),
                 command=btn_command if btn_command else lambda t=btn_text: print(f"{t} clicked")
             )
+            if is_accent:
+                btn_kwargs["fg_color"] = "#1f6aa5"
+                btn_kwargs["hover_color"] = "#144870"
+            # else: no fg_color override — button uses the theme's default styling
+
+            btn = ctk.CTkButton(self.top_toolbar, **btn_kwargs)
             btn.pack(side="left", padx=1, pady=5)
             
 
@@ -98,13 +100,13 @@ class TeacherDashboard(ctk.CTkToplevel):
         hydrate_dashboard(self.master_app, self)
 
         # --- BOTTOM STATUS BAR ---
-        self.bottom_bar = ctk.CTkFrame(self, height=40, fg_color="#2b2b2b", corner_radius=0)
+        self.bottom_bar = ctk.CTkFrame(self, height=40, corner_radius=0)
         self.bottom_bar.pack(side="bottom", fill="x")
         
-        self.lbl_rooms = ctk.CTkButton(self.bottom_bar, text="Computer rooms", fg_color="transparent", text_color="white", width=100)
+        self.lbl_rooms = ctk.CTkButton(self.bottom_bar, text="Computer rooms", fg_color="transparent", text_color=("black", "white"), width=100)
         self.lbl_rooms.pack(side="left", padx=10)
-        
-        self.lbl_screenshots = ctk.CTkButton(self.bottom_bar, text="Screenshots", fg_color="transparent", text_color="white", width=90)
+
+        self.lbl_screenshots = ctk.CTkButton(self.bottom_bar, text="Screenshots", fg_color="transparent", text_color=("black", "white"), width=90)
         self.lbl_screenshots.pack(side="left", padx=5)
         
         self.search_entry = ctk.CTkEntry(self.bottom_bar, placeholder_text="Search users and computers", width=220)
