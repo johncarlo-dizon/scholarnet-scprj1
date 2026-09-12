@@ -291,9 +291,6 @@ class TeacherDashboard(ctk.CTkToplevel):
     def setup_grid_layout(self):
         setup_grid_layout(self)
 
-    def create_student_card(self, name, ip, index):
-        create_student_card(self, name, ip, index)
-
     def show_context_menu(self, event, ip, name):
         context_menu = tk.Menu(self, tearoff=0, bg="#f0f0f0", fg="black", font=("Arial", 10))
         context_menu.add_command(label="Remote View", command=lambda: self.open_full_view(ip, is_control=False))

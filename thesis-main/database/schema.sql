@@ -109,3 +109,23 @@ CREATE TABLE IF NOT EXISTS site_alerts (
 -- (password 'admin123' / 'teacher123' set via db.py's seed_defaults(), not here,
 --  since hashing needs Python, not raw SQL)
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Inventory (equipment borrowing, admin-managed)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS inventory_items (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL UNIQUE,
+    quantity_total  INTEGER NOT NULL DEFAULT 0,
+    quantity_available INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS borrow_records (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id         INTEGER NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    borrower_name   TEXT NOT NULL,
+    quantity        INTEGER NOT NULL DEFAULT 1,
+    borrowed_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    returned_at     TEXT,               -- NULL while still borrowed
+    notes           TEXT
+);

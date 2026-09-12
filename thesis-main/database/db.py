@@ -398,3 +398,80 @@ if __name__ == "__main__":
     print("Admin user:", get_user_by_username("admin"))
     print("Labs:", get_all_labs())
     print("Blocklist:", get_blocklist())
+
+
+# ---------------------------------------------------------------------------
+# Inventory (borrowing)
+# ---------------------------------------------------------------------------
+
+def add_inventory_item(name, quantity_total):
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO inventory_items (name, quantity_total, quantity_available)
+               VALUES (?, ?, ?)""",
+            (name, quantity_total, quantity_total),
+        )
+
+
+def get_all_inventory_items():
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM inventory_items ORDER BY name").fetchall()
+        return [dict(r) for r in rows]
+
+
+def borrow_item(item_id, borrower_name, quantity=1, notes=""):
+    """Returns (True, None) on success, or (False, error_message) if not enough stock."""
+    with get_conn() as conn:
+        item = conn.execute("SELECT * FROM inventory_items WHERE id=?", (item_id,)).fetchone()
+        if not item:
+            return False, "Item not found."
+        if item["quantity_available"] < quantity:
+            return False, f"Only {item['quantity_available']} available."
+
+        conn.execute(
+            "UPDATE inventory_items SET quantity_available = quantity_available - ? WHERE id=?",
+            (quantity, item_id),
+        )
+        conn.execute(
+            """INSERT INTO borrow_records (item_id, borrower_name, quantity, notes)
+               VALUES (?, ?, ?, ?)""",
+            (item_id, borrower_name, quantity, notes),
+        )
+    return True, None
+
+
+def return_item(borrow_record_id):
+    with get_conn() as conn:
+        record = conn.execute("SELECT * FROM borrow_records WHERE id=?", (borrow_record_id,)).fetchone()
+        if not record or record["returned_at"] is not None:
+            return
+        conn.execute(
+            "UPDATE borrow_records SET returned_at=? WHERE id=?",
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), borrow_record_id),
+        )
+        conn.execute(
+            "UPDATE inventory_items SET quantity_available = quantity_available + ? WHERE id=?",
+            (record["quantity"], record["item_id"]),
+        )
+
+
+def get_active_borrows():
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT br.*, i.name AS item_name FROM borrow_records br
+               JOIN inventory_items i ON i.id = br.item_id
+               WHERE br.returned_at IS NULL
+               ORDER BY br.borrowed_at DESC"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_borrow_history(limit=200):
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT br.*, i.name AS item_name FROM borrow_records br
+               JOIN inventory_items i ON i.id = br.item_id
+               ORDER BY br.borrowed_at DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]

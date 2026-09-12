@@ -29,6 +29,7 @@ class AdminDashboard(ctk.CTkToplevel):
         tabview.add("User Management")
         tabview.add("Manage Teachers")
         tabview.add("Lab Monitoring")
+        tabview.add("Inventory")
         
         # --- Logs & History Tab ---
         self.search_entry = ctk.CTkEntry(tabview.tab("Logs & History"), placeholder_text="Search student name...")
@@ -97,6 +98,55 @@ class AdminDashboard(ctk.CTkToplevel):
 
         self.lab_occupancy_frame = ctk.CTkScrollableFrame(lab_tab, width=500, height=280)
         self.lab_occupancy_frame.pack(pady=5, fill="both", expand=True)
+
+                # --- Inventory Tab ---
+        inv_tab = tabview.tab("Inventory")
+
+        # -- Add new item --
+        add_item_frame = ctk.CTkFrame(inv_tab, fg_color="transparent")
+        add_item_frame.pack(pady=10, fill="x", padx=10)
+
+        ctk.CTkLabel(add_item_frame, text="Add New Item", font=("Arial", 14, "bold")).pack(anchor="w")
+
+        add_row = ctk.CTkFrame(add_item_frame, fg_color="transparent")
+        add_row.pack(fill="x", pady=5)
+        self.inv_item_name = ctk.CTkEntry(add_row, placeholder_text="Item name (e.g. Wireless Mouse)", width=250)
+        self.inv_item_name.pack(side="left", padx=5)
+        self.inv_item_qty = ctk.CTkEntry(add_row, placeholder_text="Qty", width=80)
+        self.inv_item_qty.pack(side="left", padx=5)
+        ctk.CTkButton(add_row, text="Add Item", fg_color="green", command=self.add_inventory_item_ui).pack(side="left", padx=5)
+
+        self.inv_status_label = ctk.CTkLabel(inv_tab, text="")
+        self.inv_status_label.pack()
+
+        # -- Borrow an item --
+        borrow_frame = ctk.CTkFrame(inv_tab, fg_color="transparent")
+        borrow_frame.pack(pady=10, fill="x", padx=10)
+        ctk.CTkLabel(borrow_frame, text="Log a Borrow", font=("Arial", 14, "bold")).pack(anchor="w")
+
+        borrow_row = ctk.CTkFrame(borrow_frame, fg_color="transparent")
+        borrow_row.pack(fill="x", pady=5)
+
+        self.inv_item_map = {}
+        self.inv_item_dropdown = ctk.CTkOptionMenu(borrow_row, values=["No items yet"], width=200)
+        self.inv_item_dropdown.pack(side="left", padx=5)
+        self.inv_borrower_name = ctk.CTkEntry(borrow_row, placeholder_text="Borrower name", width=180)
+        self.inv_borrower_name.pack(side="left", padx=5)
+        self.inv_borrow_qty = ctk.CTkEntry(borrow_row, placeholder_text="Qty", width=60)
+        self.inv_borrow_qty.pack(side="left", padx=5)
+        ctk.CTkButton(borrow_row, text="Borrow", fg_color="#1f6aa5", command=self.borrow_item_ui).pack(side="left", padx=5)
+
+        # -- Item list --
+        ctk.CTkLabel(inv_tab, text="All Items", font=("Arial", 14, "bold")).pack(anchor="w", padx=10, pady=(15, 0))
+        self.inv_items_frame = ctk.CTkScrollableFrame(inv_tab, height=100)
+        self.inv_items_frame.pack(fill="x", padx=10, pady=5)
+
+        # -- Currently borrowed --
+        ctk.CTkLabel(inv_tab, text="Currently Borrowed", font=("Arial", 14, "bold")).pack(anchor="w", padx=10, pady=(15, 0))
+        self.inv_active_frame = ctk.CTkScrollableFrame(inv_tab, height=150)
+        self.inv_active_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        self.refresh_inventory_ui()
 
     def reset_student_password(self):
         username = self.target_user_entry.get().strip()
@@ -198,3 +248,78 @@ class AdminDashboard(ctk.CTkToplevel):
     def shutdown_all(self):
         for ip in self._get_all_connected_ips():
             send_command(ip, "SHUTDOWN")
+
+
+    def add_inventory_item_ui(self):
+        name = self.inv_item_name.get().strip()
+        qty_str = self.inv_item_qty.get().strip()
+
+        if not name or not qty_str.isdigit():
+            self.inv_status_label.configure(text="Enter a name and a valid quantity.", text_color="orange")
+            return
+
+        existing = [i for i in db.get_all_inventory_items() if i["name"].lower() == name.lower()]
+        if existing:
+            self.inv_status_label.configure(text="Item already exists.", text_color="red")
+            return
+
+        db.add_inventory_item(name, int(qty_str))
+        self.inv_status_label.configure(text=f"Added '{name}' (x{qty_str}).", text_color="green")
+        self.inv_item_name.delete(0, "end")
+        self.inv_item_qty.delete(0, "end")
+        self.refresh_inventory_ui()
+
+    def borrow_item_ui(self):
+        selected = self.inv_item_dropdown.get()
+        item_id = self.inv_item_map.get(selected)
+        borrower = self.inv_borrower_name.get().strip()
+        qty_str = self.inv_borrow_qty.get().strip()
+
+        if not item_id or not borrower or not qty_str.isdigit():
+            self.inv_status_label.configure(text="Fill in item, borrower, and quantity.", text_color="orange")
+            return
+
+        ok, err = db.borrow_item(item_id, borrower, int(qty_str))
+        if ok:
+            self.inv_status_label.configure(text=f"'{borrower}' borrowed {qty_str}x {selected}.", text_color="green")
+            self.inv_borrower_name.delete(0, "end")
+            self.inv_borrow_qty.delete(0, "end")
+        else:
+            self.inv_status_label.configure(text=err, text_color="red")
+        self.refresh_inventory_ui()
+
+    def return_item_ui(self, borrow_id):
+        db.return_item(borrow_id)
+        self.refresh_inventory_ui()
+
+    def refresh_inventory_ui(self):
+        for widget in self.inv_items_frame.winfo_children():
+            widget.destroy()
+        for widget in self.inv_active_frame.winfo_children():
+            widget.destroy()
+
+        items = db.get_all_inventory_items()
+        self.inv_item_map = {i["name"]: i["id"] for i in items}
+        if items:
+            self.inv_item_dropdown.configure(values=list(self.inv_item_map.keys()))
+            self.inv_item_dropdown.set(list(self.inv_item_map.keys())[0])
+        else:
+            self.inv_item_dropdown.configure(values=["No items yet"])
+            self.inv_item_dropdown.set("No items yet")
+
+        if not items:
+            ctk.CTkLabel(self.inv_items_frame, text="No items added yet.", text_color="gray").pack(pady=10)
+        for item in items:
+            text = f"{item['name']} — {item['quantity_available']} / {item['quantity_total']} available"
+            ctk.CTkLabel(self.inv_items_frame, text=text, anchor="w").pack(fill="x", padx=10, pady=3)
+
+        active = db.get_active_borrows()
+        if not active:
+            ctk.CTkLabel(self.inv_active_frame, text="Nothing currently borrowed.", text_color="gray").pack(pady=10)
+        for record in active:
+            frm = ctk.CTkFrame(self.inv_active_frame)
+            frm.pack(fill="x", padx=5, pady=4)
+            text = f"{record['item_name']} x{record['quantity']} — {record['borrower_name']} (since {record['borrowed_at']})"
+            ctk.CTkLabel(frm, text=text, anchor="w").pack(side="left", padx=10, pady=6, fill="x", expand=True)
+            ctk.CTkButton(frm, text="Mark Returned", fg_color="green", width=110,
+                        command=lambda bid=record["id"]: self.return_item_ui(bid)).pack(side="right", padx=10)
