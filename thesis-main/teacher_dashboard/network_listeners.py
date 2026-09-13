@@ -313,13 +313,12 @@ def start_persistent_stream_listeners(self):
 
                 if len(frame_data) == frame_length:
                     image = Image.open(io.BytesIO(frame_data))
-                    img_tk = ImageTk.PhotoImage(image)
 
                     dashboard = getattr(self, "active_teacher_dashboard", None)
                     if dashboard and hasattr(dashboard, 'active_viewers') and student_ip in dashboard.active_viewers:
                         viewer = dashboard.active_viewers[student_ip]
                         if viewer.winfo_exists():
-                            viewer.after(0, lambda img=img_tk, v=viewer: v.update_image(img))
+                            viewer.after(0, lambda img=image, v=viewer: v.update_image(img))
         except Exception as e:
             print(f"Remote view error for {student_ip}: {e}")
         finally:

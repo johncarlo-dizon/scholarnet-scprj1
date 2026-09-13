@@ -58,13 +58,13 @@ class ScreenViewer(ctk.CTkToplevel):
 
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-    def update_image(self, img_tk):
-        """[FIXED]: Tinatanggap na ngayon ang frame na pinapasa ng network_listeners.py mula sa Port 9997"""
+    def update_image(self, pil_image):
+        """Receives a raw PIL image (not a PhotoImage) so the only PhotoImage
+        conversion happens here, once, on the main GUI thread."""
         try:
             new_width = self.label.winfo_width()
             new_height = self.label.winfo_height()
             if new_width > 1 and new_height > 1:
-                pil_image = ImageTk.getimage(img_tk)
                 self.latest_image = pil_image
                 resized_img = pil_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
                 photo = ImageTk.PhotoImage(resized_img)
