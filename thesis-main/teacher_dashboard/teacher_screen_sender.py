@@ -13,7 +13,7 @@ pyautogui.FAILSAFE = False
 _stop_flag = {"stop": False}
 
 
-def _stream_loop(target_port, teacher_name, fps_delay, resize_dim, quality, include_cursor):
+def _stream_loop(target_port, teacher_name, fps_delay, resize_dim, quality, include_cursor, send_handshake):
     print(f"[DEBUG teacher_stream] Starting stream loop -> {ADMIN_IP}:{target_port}")
     while not _stop_flag["stop"]:
         try:
@@ -21,7 +21,8 @@ def _stream_loop(target_port, teacher_name, fps_delay, resize_dim, quality, incl
             client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             client.connect((ADMIN_IP, target_port))
             print(f"[DEBUG teacher_stream] Connected successfully to {ADMIN_IP}:{target_port}")
-            client.sendall(f"NAME: {teacher_name}|ROLE:teacher\n".encode('utf-8'))
+            if send_handshake:
+                client.sendall(f"NAME: {teacher_name}|ROLE:teacher\n".encode('utf-8'))
 
             with mss.mss() as sct:
                 monitor = sct.monitors[1]
@@ -47,17 +48,19 @@ def _stream_loop(target_port, teacher_name, fps_delay, resize_dim, quality, incl
 
 def start_teacher_streaming(teacher_name):
     """Call once when TeacherDashboard opens. Streams the teacher's own screen
-    to Admin: a thumbnail feed (STREAM_PORT) and a remote-view feed
-    (REMOTE_VIEW_PORT) — same protocol students already use."""
+    to Admin: a thumbnail feed (STREAM_PORT, needs the NAME/ROLE handshake so
+    handle_client can identify it) and a remote-view feed (REMOTE_VIEW_PORT,
+    NO handshake — handle_remote_client reads raw length-prefixed frames only,
+    exactly like students' start_live_monitoring does)."""
     _stop_flag["stop"] = False
     threading.Thread(
         target=_stream_loop,
-        args=(STREAM_PORT, teacher_name, 0.04, (1280, 720), 75, False),
+        args=(STREAM_PORT, teacher_name, 0.04, (1280, 720), 75, False, True),
         daemon=True,
     ).start()
     threading.Thread(
         target=_stream_loop,
-        args=(REMOTE_VIEW_PORT, teacher_name, 0.06, (960, 540), 70, True),
+        args=(REMOTE_VIEW_PORT, teacher_name, 0.06, (960, 540), 70, True, False),
         daemon=True,
     ).start()
 
