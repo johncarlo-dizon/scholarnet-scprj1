@@ -17,6 +17,9 @@ class ScreenViewer(ctk.CTkToplevel):
         mode_title = "Remote Control" if self.control_mode else "Remote View"
         self.title(f"{mode_title} - {student_ip}")
         self.attributes("-fullscreen", True)
+        self.attributes("-topmost", True)
+        self.lift()
+        self.focus_force()
         
         self.latest_image = None
         self.running = True
