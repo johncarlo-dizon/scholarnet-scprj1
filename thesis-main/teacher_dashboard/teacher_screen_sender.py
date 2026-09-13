@@ -14,11 +14,13 @@ _stop_flag = {"stop": False}
 
 
 def _stream_loop(target_port, teacher_name, fps_delay, resize_dim, quality, include_cursor):
+    print(f"[DEBUG teacher_stream] Starting stream loop -> {ADMIN_IP}:{target_port}")
     while not _stop_flag["stop"]:
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             client.connect((ADMIN_IP, target_port))
+            print(f"[DEBUG teacher_stream] Connected successfully to {ADMIN_IP}:{target_port}")
             client.sendall(f"NAME: {teacher_name}|ROLE:teacher\n".encode('utf-8'))
 
             with mss.mss() as sct:
@@ -36,7 +38,8 @@ def _stream_loop(target_port, teacher_name, fps_delay, resize_dim, quality, incl
                     data = encoded.tobytes()
                     client.sendall(len(data).to_bytes(4, byteorder='big') + data)
                     time.sleep(fps_delay)
-        except Exception:
+        except Exception as e:
+            print(f"[DEBUG teacher_stream] FAILED to connect to {ADMIN_IP}:{target_port} -> {e}")
             time.sleep(2)
         if _stop_flag["stop"]:
             break
