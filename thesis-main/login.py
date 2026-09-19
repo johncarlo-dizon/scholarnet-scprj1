@@ -131,6 +131,14 @@ class LoginApp(ctk.CTk):
                     self.handle_get_user_info(conn, data)  
                 elif "ACTION: STAFF_LOGIN_CHECK" in data:
                     self.handle_staff_login_check(conn, data)      
+                elif "ACTION: GET_PENDING" in data:
+                    self.handle_get_pending(conn, data)
+                elif "ACTION: APPROVE_STUDENT" in data:
+                    self.handle_approve_student(conn, data)
+                elif "ACTION: DECLINE_STUDENT" in data:
+                    self.handle_decline_student(conn, data)
+                elif "ACTION: GET_TEACHER_STUDENTS" in data:
+                    self.handle_get_teacher_students(conn, data)
                     conn.close()
 
                 elif "EXPRESSION:" in data:
@@ -408,6 +416,76 @@ class LoginApp(ctk.CTk):
             conn.send(json.dumps([]).encode())
         finally:
             conn.close()
+
+    def handle_get_pending(self, conn, data):
+        try:
+            teacher_id_str = ""
+            for part in data.split("|"):
+                if "TEACHERID:" in part:
+                    teacher_id_str = part.split("TEACHERID:")[1].strip()
+            teacher_id = int(teacher_id_str) if teacher_id_str.isdigit() else None
+            pending = db.get_pending_registrations(teacher_id)
+            conn.send(json.dumps(pending).encode())
+        except Exception as e:
+            print(f"[ERROR handle_get_pending]: {e}")
+            conn.send(json.dumps([]).encode())
+        finally:
+            conn.close()
+
+    def handle_approve_student(self, conn, data):
+        try:
+            user_id_str = ""
+            for part in data.split("|"):
+                if "USERID:" in part:
+                    user_id_str = part.split("USERID:")[1].strip()
+            if user_id_str.isdigit():
+                db.approve_registration(int(user_id_str))
+            conn.send("SUCCESS".encode())
+        except Exception as e:
+            print(f"[ERROR handle_approve_student]: {e}")
+            conn.send("FAILED".encode())
+        finally:
+            conn.close()
+
+    def handle_decline_student(self, conn, data):
+        try:
+            user_id_str = ""
+            for part in data.split("|"):
+                if "USERID:" in part:
+                    user_id_str = part.split("USERID:")[1].strip()
+            if user_id_str.isdigit():
+                db.decline_registration(int(user_id_str))
+            conn.send("SUCCESS".encode())
+        except Exception as e:
+            print(f"[ERROR handle_decline_student]: {e}")
+            conn.send("FAILED".encode())
+        finally:
+            conn.close()
+
+    def handle_get_teacher_students(self, conn, data):
+        try:
+            teacher_id_str = status = ""
+            for part in data.split("|"):
+                if "TEACHERID:" in part:
+                    teacher_id_str = part.split("TEACHERID:")[1].strip()
+                elif "STATUS:" in part:
+                    status = part.split("STATUS:")[1].strip()
+            teacher_id = int(teacher_id_str) if teacher_id_str.isdigit() else None
+            with db.get_conn() as conn2:
+                rows = conn2.execute(
+                    """SELECT u.* FROM users u
+                    JOIN teacher_student ts ON ts.student_id = u.id
+                    WHERE u.role='student' AND u.status = ? AND ts.teacher_id = ?""",
+                    (status, teacher_id),
+                ).fetchall()
+                result = [dict(r) for r in rows]
+            conn.send(json.dumps(result).encode())
+        except Exception as e:
+            print(f"[ERROR handle_get_teacher_students]: {e}")
+            conn.send(json.dumps([]).encode())
+        finally:
+            conn.close()
+
 
     def handle_get_user_info(self, conn, data):
         try:
