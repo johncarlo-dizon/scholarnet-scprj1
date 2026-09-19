@@ -320,6 +320,17 @@ def get_active_session_id(user_id):
         ).fetchone()
         return row["id"] if row else None
 
+def get_all_sessions_history(limit=500):
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT s.*, u.username, u.full_name, u.role, l.name AS lab_name
+               FROM sessions s
+               JOIN users u ON u.id = s.user_id
+               LEFT JOIN labs l ON l.id = s.lab_id
+               ORDER BY s.id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 def get_history_for_user(user_id, limit=200):
     with get_conn() as conn:

@@ -183,13 +183,27 @@ class AdminDashboard(ctk.CTkToplevel):
         )
     def refresh_table(self, data=None):
         for item in self.tree.get_children(): self.tree.delete(item)
-        target = data if data is not None else self.master_app.all_logs
+        target = data if data is not None else db.get_all_sessions_history()
         for entry in target:
-            self.tree.insert("", "end", values=(entry['user'], entry['login'], entry['logout'], entry['duration']))
+            display_name = entry["full_name"] or entry["username"]
+            duration = entry["duration_secs"] or 0
+            mins, secs = divmod(duration, 60)
+            hrs, mins = divmod(mins, 60)
+            duration_str = f"{hrs}h {mins}m {secs}s" if entry["logout_time"] else "Active"
+            self.tree.insert("", "end", values=(
+                f"{display_name} ({entry['role']})",
+                entry["login_time"],
+                entry["logout_time"] or "Still active",
+                duration_str,
+            ))
 
     def filter_logs(self, event):
         query = self.search_entry.get().lower()
-        filtered = [log for log in self.master_app.all_logs if query in log['user'].lower()]
+        all_history = db.get_all_sessions_history()
+        filtered = [
+            h for h in all_history
+            if query in (h["full_name"] or "").lower() or query in h["username"].lower()
+        ]
         self.refresh_table(filtered)
 
     def create_teacher(self):

@@ -19,13 +19,41 @@ apply_theme()
 db.init_db()
 db.seed_defaults()
 from teacher_dashboard.teacher_screen_sender import start_teacher_streaming, stop_teacher_streaming
+from ui_utils import center_window
+
+class LabSelectionDialog(ctk.CTkToplevel):
+    def __init__(self, master, on_selected):
+        super().__init__(master)
+        self.title("Select Computer Lab")
+        center_window(self, 350, 220)
+        self.attributes("-topmost", True)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", lambda: None)
+        ctk.CTkLabel(self, text="Which lab are you in today?", font=("Arial", 16, "bold")).pack(pady=20)
+
+        labs = db.get_all_labs()
+        self.lab_map = {lab["name"]: lab["id"] for lab in labs}
+        self.lab_dropdown = ctk.CTkOptionMenu(self, values=list(self.lab_map.keys()) or ["No labs found"], width=250)
+        self.lab_dropdown.pack(pady=10)
+        if self.lab_map:
+            self.lab_dropdown.set(list(self.lab_map.keys())[0])
+
+        ctk.CTkButton(self, text="Confirm", command=lambda: self._confirm(on_selected)).pack(pady=20)
+
+    def _confirm(self, on_selected):
+        selected = self.lab_dropdown.get()
+        lab_id = self.lab_map.get(selected)
+        if lab_id:
+            self.destroy()
+            on_selected(lab_id)
+
 
 class LoginApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         db.init_db()
         db.seed_defaults()
-        from ui_utils import center_window
+        
         self.title("CompHub Login - Teacher/Admin")
         center_window(self, 700, 500)
         self.USERS = {
@@ -49,14 +77,6 @@ class LoginApp(ctk.CTk):
         threading.Thread(target=self.broadcast_stream_server, daemon=True).start()
         
         ctk.CTkLabel(self, text="CompHub Login", font=("Arial", 20, "bold")).pack(pady=20)
-
-        ctk.CTkLabel(self, text="Select Computer Lab:").pack()
-        labs = db.get_all_labs()
-        self.lab_map = {lab["name"]: lab["id"] for lab in labs}
-        self.lab_dropdown = ctk.CTkOptionMenu(self, values=list(self.lab_map.keys()) or ["No labs found"])
-        self.lab_dropdown.pack(pady=(0, 15))
-        if self.lab_map:
-            self.lab_dropdown.set(list(self.lab_map.keys())[0])
 
         self.user_entry = ctk.CTkEntry(self, placeholder_text="Username")
         self.user_entry.pack(pady=10)
@@ -453,20 +473,23 @@ class LoginApp(ctk.CTk):
         if user and user["role"] in ("teacher", "admin"):
             self.withdraw()
             role = user["role"]
+
             if role == "teacher":
-                selected_lab_name = self.lab_dropdown.get()
-                lab_id = self.lab_map.get(selected_lab_name)
-                if lab_id:
+                def proceed_with_lab(lab_id):
                     db.set_user_lab(user["id"], lab_id)
                     self.current_teacher_lab_id = lab_id
                     self.current_teacher_user_id = user["id"]
-                dashboard = TeacherDashboard(master_app=self)
-                self.active_teacher_dashboard = dashboard
-                start_teacher_streaming(user["full_name"] or user["username"])
+                    dashboard = TeacherDashboard(master_app=self)
+                    self.active_teacher_dashboard = dashboard
+                    dashboard.protocol("WM_DELETE_WINDOW", lambda: self.on_dashboard_close(dashboard))
+                    start_teacher_streaming(user["full_name"] or user["username"])
+
+                LabSelectionDialog(self, proceed_with_lab)
+
             elif role == "admin":
                 dashboard = AdminDashboard(master_app=self)
                 self.active_teacher_dashboard = dashboard
-            dashboard.protocol("WM_DELETE_WINDOW", lambda: self.on_dashboard_close(dashboard))
+                dashboard.protocol("WM_DELETE_WINDOW", lambda: self.on_dashboard_close(dashboard))
         else:
             self.error_label.configure(text="Invalid credentials!", text_color="red")
 

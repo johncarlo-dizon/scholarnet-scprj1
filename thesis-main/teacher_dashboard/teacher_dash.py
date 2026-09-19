@@ -36,12 +36,22 @@ class TeacherDashboard(ctk.CTkToplevel):
         self.student_histories = {} 
         
         from ui_utils import center_window
-        self.title("Teacher Dashboard")
+        lab_id = getattr(self.master_app, "current_teacher_lab_id", None)
+        lab_name = "No Lab Selected"
+        if lab_id:
+            match = next((l["name"] for l in db.get_all_labs() if l["id"] == lab_id), None)
+            if match:
+                lab_name = match
+
+        self.title(f"Teacher Dashboard - {lab_name}")
         center_window(self, 1200, 800)
         
         # --- TOP TOOLBAR ---
         self.top_toolbar = ctk.CTkFrame(self, height=65, corner_radius=0)
         self.top_toolbar.pack(side="top", fill="x")
+        self.lab_status_label = ctk.CTkLabel(self, text=f"📍 Currently in: {lab_name}",
+                                            font=ctk.CTkFont(size=13, weight="bold"))
+        self.lab_status_label.pack(side="top", pady=(8, 0))
         
         toolbar_items = [
             ("Monitoring", None),

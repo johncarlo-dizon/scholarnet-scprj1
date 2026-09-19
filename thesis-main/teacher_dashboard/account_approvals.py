@@ -1,11 +1,14 @@
 import customtkinter as ctk
 from database import db
-from ui_utils import center_window
+
+
 def open_account_approvals(master_teacher):
     window = ctk.CTkToplevel(master_teacher)
     window.title("Account Approvals Management")
-    center_window(window, 750, 550)
+    window.geometry("750x550")
     window.attributes("-topmost", True)
+
+    teacher_id = getattr(master_teacher.master_app, "current_teacher_user_id", None)
 
     ctk.CTkLabel(window, text="Student Account Requests", font=("Arial", 18, "bold")).pack(pady=15)
 
@@ -21,7 +24,7 @@ def open_account_approvals(master_teacher):
         for widget in tab_accepted.winfo_children(): widget.destroy()
         for widget in tab_declined.winfo_children(): widget.destroy()
 
-        pending = db.get_pending_registrations()
+        pending = db.get_pending_registrations(teacher_id)
         for acc in pending:
             frm = ctk.CTkFrame(tab_pending)
             frm.pack(fill="x", padx=10, pady=5)
@@ -35,10 +38,16 @@ def open_account_approvals(master_teacher):
 
         with db.get_conn() as conn:
             accepted_rows = conn.execute(
-                "SELECT * FROM users WHERE role='student' AND status='approved'"
+                """SELECT u.* FROM users u
+                   JOIN teacher_student ts ON ts.student_id = u.id
+                   WHERE u.role='student' AND u.status='approved' AND ts.teacher_id = ?""",
+                (teacher_id,),
             ).fetchall()
             declined_rows = conn.execute(
-                "SELECT * FROM users WHERE role='student' AND status='declined'"
+                """SELECT u.* FROM users u
+                   JOIN teacher_student ts ON ts.student_id = u.id
+                   WHERE u.role='student' AND u.status='declined' AND ts.teacher_id = ?""",
+                (teacher_id,),
             ).fetchall()
 
         for acc in accepted_rows:

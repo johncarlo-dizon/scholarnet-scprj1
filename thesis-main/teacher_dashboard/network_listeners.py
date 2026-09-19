@@ -277,6 +277,19 @@ def start_persistent_stream_listeners(self):
                 self.after(0, remove_card_ui)
                 self.after(0, lambda: record_logout(self, student_ip))
 
+            def force_close_db_session():
+                from database import db
+                username = self.ip_to_username.get(student_ip) if hasattr(self, "ip_to_username") else None
+                if username:
+                    user = db.get_user_by_username(username)
+                    if user:
+                        session_id = db.get_active_session_id(user["id"])
+                        if session_id:
+                            db.end_session(session_id)
+
+            if hasattr(self, 'after'):
+                self.after(0, force_close_db_session)
+
     def stream_listener():
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
