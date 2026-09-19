@@ -272,13 +272,16 @@ def set_user_lab(user_id, lab_id):
 
 
 def get_lab_occupancy(lab_id):
-    """Users currently in a lab with an open (still-active) session."""
+    """Users currently in a lab with an open (still-active) session.
+    Filters on the SESSION's own lab_id, not the user's persistent lab_id
+    field — the session is the true "where are they right now" record,
+    since it's set at the moment they logged into that specific lab."""
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT u.*, s.pc_name, s.ip_address, s.login_time
                FROM users u
                JOIN sessions s ON s.user_id = u.id
-               WHERE u.lab_id = ? AND s.logout_time IS NULL""",
+               WHERE s.lab_id = ? AND s.logout_time IS NULL""",
             (lab_id,),
         ).fetchall()
         return [dict(r) for r in rows]
