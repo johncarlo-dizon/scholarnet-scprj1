@@ -128,7 +128,9 @@ class LoginApp(ctk.CTk):
                 elif "ACTION: TEACHER_OFFLINE" in data:
                     self.handle_teacher_offline(data)
                 elif "ACTION: GET_USER_INFO" in data:
-                    self.handle_get_user_info(conn, data)    
+                    self.handle_get_user_info(conn, data)  
+                elif "ACTION: STAFF_LOGIN_CHECK" in data:
+                    self.handle_staff_login_check(conn, data)      
                     conn.close()
 
                 elif "EXPRESSION:" in data:
@@ -217,6 +219,31 @@ class LoginApp(ctk.CTk):
         except Exception as e:
             print(f"[ERROR notifying admin teacher offline]: {e}")
 
+    def handle_staff_login_check(self, conn, data):
+        try:
+            username = password = ""
+            for part in data.split("|"):
+                if "USER:" in part:
+                    username = part.split("USER:")[1].strip()
+                elif "PWD:" in part:
+                    password = part.split("PWD:")[1].strip()
+
+            user = db.verify_password(username, password)
+            if user and user["role"] in ("teacher", "admin"):
+                payload = {
+                    "success": True,
+                    "id": user["id"],
+                    "role": user["role"],
+                    "full_name": user["full_name"] or user["username"],
+                }
+            else:
+                payload = {"success": False}
+            conn.send(json.dumps(payload).encode())
+        except Exception as e:
+            print(f"[ERROR handle_staff_login_check]: {e}")
+            conn.send(json.dumps({"success": False}).encode())
+        finally:
+            conn.close()
 
     def handle_login_check(self, conn, data):
         try:
@@ -549,8 +576,21 @@ class LoginApp(ctk.CTk):
     def check_login(self):
         username = self.user_entry.get()
         password = self.pass_entry.get()
-        user = db.verify_password(username, password)
-        if user and user["role"] in ("teacher", "admin"):
+
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(5)
+            s.connect((ADMIN_IP, 5001))
+            s.sendall(f"ACTION: STAFF_LOGIN_CHECK | USER: {username} | PWD: {password}".encode())
+            response = s.recv(4096).decode()
+            s.close()
+            result = json.loads(response)
+        except Exception as e:
+            self.error_label.configure(text=f"Cannot reach Admin server: {e}", text_color="red")
+            return
+
+        if result.get("success"):
+            user = {"id": result["id"], "role": result["role"], "full_name": result["full_name"], "username": username}
             self.withdraw()
             role = user["role"]
 
