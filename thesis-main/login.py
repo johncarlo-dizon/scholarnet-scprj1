@@ -159,15 +159,24 @@ class LoginApp(ctk.CTk):
 
     def handle_teacher_online(self, data):
         try:
-            teacher_id_str = lab_id_str = ""
+            teacher_id_str = lab_id_str = pc_name = ""
             for part in data.split("|"):
                 if "TEACHERID:" in part:
                     teacher_id_str = part.split("TEACHERID:")[1].strip()
                 elif "LABID:" in part:
                     lab_id_str = part.split("LABID:")[1].strip()
+                elif "PCNAME:" in part:
+                    pc_name = part.split("PCNAME:")[1].strip()
+
             if teacher_id_str.isdigit() and lab_id_str.isdigit():
-                self.online_teachers[int(lab_id_str)] = {"teacher_id": int(teacher_id_str)}
-                print(f"[DEBUG] Teacher {teacher_id_str} is now ONLINE in lab {lab_id_str}")
+                teacher_id = int(teacher_id_str)
+                lab_id = int(lab_id_str)
+
+                # Admin's own database is the single source of truth: create the
+                # real session row HERE, not on the teacher's own machine.
+                session_id = db.start_session(teacher_id, lab_id=lab_id, pc_name=pc_name, ip_address="teacher")
+                self.online_teachers[lab_id] = {"teacher_id": teacher_id, "session_id": session_id}
+                print(f"[DEBUG] Teacher {teacher_id} is now ONLINE in lab {lab_id} (session {session_id})")
         except Exception as e:
             print(f"[ERROR handle_teacher_online]: {e}")
 
@@ -178,7 +187,9 @@ class LoginApp(ctk.CTk):
                 if "LABID:" in part:
                     lab_id_str = part.split("LABID:")[1].strip()
             if lab_id_str.isdigit():
-                self.online_teachers.pop(int(lab_id_str), None)
+                entry = self.online_teachers.pop(int(lab_id_str), None)
+                if entry and entry.get("session_id"):
+                    db.end_session(entry["session_id"])
                 print(f"[DEBUG] Teacher OFFLINE for lab {lab_id_str}")
         except Exception as e:
             print(f"[ERROR handle_teacher_offline]: {e}")
@@ -188,7 +199,8 @@ class LoginApp(ctk.CTk):
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(3)
             s.connect((ADMIN_IP, 5001))
-            s.sendall(f"ACTION: TEACHER_ONLINE | TEACHERID: {teacher_id} | LABID: {lab_id}".encode())
+            pc_name = socket.gethostname()
+            s.sendall(f"ACTION: TEACHER_ONLINE | TEACHERID: {teacher_id} | LABID: {lab_id} | PCNAME: {pc_name}".encode())
             s.close()
         except Exception as e:
             print(f"[ERROR notifying admin teacher online]: {e}")
@@ -528,9 +540,6 @@ class LoginApp(ctk.CTk):
                     db.set_user_lab(user["id"], lab_id)
                     self.current_teacher_lab_id = lab_id
                     self.current_teacher_user_id = user["id"]
-                    self.current_teacher_session_id = db.start_session(
-                        user["id"], lab_id=lab_id, pc_name=socket.gethostname(), ip_address="self"
-                    )
                     self._notify_admin_teacher_online(user["id"], lab_id)
                     dashboard = TeacherDashboard(master_app=self)
                     self.active_teacher_dashboard = dashboard
@@ -550,9 +559,6 @@ class LoginApp(ctk.CTk):
         if dashboard == self.active_teacher_dashboard:
             self.active_teacher_dashboard = None
             if isinstance(dashboard, TeacherDashboard):
-                if getattr(self, "current_teacher_session_id", None):
-                    db.end_session(self.current_teacher_session_id)
-                    self.current_teacher_session_id = None
                 if getattr(self, "current_teacher_lab_id", None) is not None:
                     self._notify_admin_teacher_offline(self.current_teacher_lab_id)
                 self.current_teacher_lab_id = None
