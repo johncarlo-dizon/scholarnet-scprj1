@@ -4,8 +4,32 @@ import io
 from datetime import datetime
 from PIL import Image, ImageTk
 
-from network_config import TEACHER_IP
+import socket as _socket
+import json as _json
+from network_config import TEACHER_IP, ADMIN_IP, LOG_PORT
 
+
+def _get_user_info(username, is_admin_context):
+    """If we're running inside Admin's own process, the local db is the
+    real source of truth — read it directly. Otherwise (Teacher's process),
+    the local db is a stale, unused copy, so ask Admin over the network."""
+    from database import db as _db
+
+    if is_admin_context:
+        return _db.get_user_by_username(username)
+
+    try:
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.settimeout(3)
+        s.connect((ADMIN_IP, LOG_PORT))
+        s.sendall(f"ACTION: GET_USER_INFO | USER: {username}".encode())
+        response = s.recv(4096).decode()
+        s.close()
+        data = _json.loads(response)
+        return data if data else None
+    except Exception as e:
+        print(f"[ERROR _get_user_info network query]: {e}")
+        return None
 
 def handle_student_expression(self, expression_text, sender_ip):
     """self is always the LoginApp instance."""
@@ -35,15 +59,17 @@ def update_student_card_name(self, username, ip, role="student"):
     only applies to Teacher dashboards viewing students — Admin's monitor
     dashboard (is_admin_monitor=True) always shows everyone, students and
     teachers alike."""
-    from database import db
     from .student_cards import create_student_card, build_card_label
+
+    dashboard_check = getattr(self, "active_teacher_dashboard", None)
+    is_admin_context = getattr(dashboard_check, "is_admin_monitor", False)
 
     pc_number = ip.split('.')[-1]
 
     if role == "teacher":
         full_name = username
     else:
-        user = db.get_user_by_username(username)
+        user = _get_user_info(username, is_admin_context)
         full_name = (user["full_name"] if user and user.get("full_name") else username)
 
     if not hasattr(self, "student_display_names"):
@@ -69,9 +95,8 @@ def update_student_card_name(self, username, ip, role="student"):
         # show students who match this teacher's currently selected lab.
         if role == "teacher":
             return
-        from database import db as _db
         teacher_lab_id = getattr(self, "current_teacher_lab_id", None)
-        user = _db.get_user_by_username(username)
+        user = _get_user_info(username, is_admin_context)
         student_lab_id = user["lab_id"] if user else None
         if teacher_lab_id is not None and student_lab_id != teacher_lab_id:
             if ip in dashboard.student_cards:
@@ -102,7 +127,6 @@ def hydrate_dashboard(self, dashboard):
     already connected. Teacher dashboards: students only, filtered to the
     teacher's current lab. Admin's monitor dashboard (is_admin_monitor=True):
     everyone, students and teachers, no lab filtering."""
-    from database import db
     from .student_cards import create_student_card
 
     frames = getattr(self, "latest_frames", {})
@@ -119,7 +143,7 @@ def hydrate_dashboard(self, dashboard):
         if not is_admin_monitor:
             if role == "teacher":
                 continue
-            user = db.get_user_by_username(username) if username else None
+            user = _get_user_info(username, is_admin_monitor) if username else None
             if user and teacher_lab_id is not None and user["lab_id"] != teacher_lab_id:
                 continue
             full_name = (user["full_name"] if user and user.get("full_name") else (username or "Unknown"))
@@ -127,7 +151,7 @@ def hydrate_dashboard(self, dashboard):
             if role == "teacher":
                 full_name = username or "Unknown Teacher"
             else:
-                user = db.get_user_by_username(username) if username else None
+                user = _get_user_info(username, is_admin_monitor) if username else None
                 full_name = (user["full_name"] if user and user.get("full_name") else (username or "Unknown"))
 
         pc_number = ip.split('.')[-1]

@@ -127,6 +127,8 @@ class LoginApp(ctk.CTk):
                     conn.close()
                 elif "ACTION: TEACHER_OFFLINE" in data:
                     self.handle_teacher_offline(data)
+                elif "ACTION: GET_USER_INFO" in data:
+                    self.handle_get_user_info(conn, data)    
                     conn.close()
 
                 elif "EXPRESSION:" in data:
@@ -380,6 +382,23 @@ class LoginApp(ctk.CTk):
         finally:
             conn.close()
 
+    def handle_get_user_info(self, conn, data):
+        try:
+            username = ""
+            for part in data.split("|"):
+                if "USER:" in part:
+                    username = part.split("USER:")[1].strip()
+            user = db.get_user_by_username(username)
+            if user:
+                payload = {"id": user["id"], "full_name": user["full_name"], "lab_id": user["lab_id"], "role": user["role"]}
+                conn.send(json.dumps(payload).encode())
+            else:
+                conn.send(json.dumps(None).encode())
+        except Exception as e:
+            print(f"[ERROR handle_get_user_info]: {e}")
+            conn.send(json.dumps(None).encode())
+        finally:
+            conn.close()
 
     def handle_get_teachers(self, conn):
         try:
