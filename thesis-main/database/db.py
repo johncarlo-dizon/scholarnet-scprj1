@@ -31,6 +31,20 @@ SCHEMA_PATH = os.path.join(BASE_DIR, "schema.sql")
 
 DEFAULT_RESET_PASSWORD = "comlab123456"
 
+from datetime import timedelta
+
+def _utc_to_local_str(utc_str, offset_hours=8):
+    """Converts a stored UTC 'YYYY-MM-DD HH:MM:SS' string to local display
+    time. Philippines is UTC+8 — adjust offset_hours if deployed elsewhere."""
+    if not utc_str:
+        return utc_str
+    try:
+        dt = datetime.strptime(utc_str, "%Y-%m-%d %H:%M:%S")
+        local_dt = dt + timedelta(hours=offset_hours)
+        return local_dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return utc_str
+
 
 # ---------------------------------------------------------------------------
 # Connection handling
@@ -333,7 +347,11 @@ def get_all_sessions_history(limit=500):
                ORDER BY s.id DESC LIMIT ?""",
             (limit,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        results = [dict(r) for r in rows]
+        for r in results:
+            r["login_time"] = _utc_to_local_str(r["login_time"])
+            r["logout_time"] = _utc_to_local_str(r["logout_time"])
+        return results
 
 def get_history_for_user(user_id, limit=200):
     with get_conn() as conn:
@@ -343,7 +361,11 @@ def get_history_for_user(user_id, limit=200):
                WHERE s.user_id = ? ORDER BY s.id DESC LIMIT ?""",
             (user_id, limit),
         ).fetchall()
-        return [dict(r) for r in rows]
+        results = [dict(r) for r in rows]
+        for r in results:
+            r["login_time"] = _utc_to_local_str(r["login_time"])
+            r["logout_time"] = _utc_to_local_str(r["logout_time"])
+        return results
 
 
 # ---------------------------------------------------------------------------

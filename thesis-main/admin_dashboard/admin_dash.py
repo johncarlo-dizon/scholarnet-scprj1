@@ -51,11 +51,17 @@ class AdminDashboard(ctk.CTkToplevel):
 
         hydrate_dashboard(self.master_app, self)
         
-        # --- Logs & History Tab ---
-        self.search_entry = ctk.CTkEntry(tabview.tab("Logs & History"), placeholder_text="Search student name...")
-        self.search_entry.pack(pady=10, fill="x")
+       # --- Logs & History Tab ---
+        logs_top_row = ctk.CTkFrame(tabview.tab("Logs & History"), fg_color="transparent")
+        logs_top_row.pack(pady=10, fill="x")
+
+        self.search_entry = ctk.CTkEntry(logs_top_row, placeholder_text="Search student name...")
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.search_entry.bind("<KeyRelease>", self.filter_logs)
-        
+
+        ctk.CTkButton(logs_top_row, text="Refresh", width=90, fg_color="#1f6aa5",
+                    command=lambda: self.refresh_table()).pack(side="left")
+
         self.tree = ttk.Treeview(tabview.tab("Logs & History"), columns=("User", "Login", "Logout", "Duration"), show='headings')
         for col in ["User", "Login", "Logout", "Duration"]:
             self.tree.heading(col, text=col)
