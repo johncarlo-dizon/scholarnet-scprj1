@@ -298,7 +298,10 @@ def get_lab_occupancy(lab_id):
                WHERE s.lab_id = ? AND s.logout_time IS NULL""",
             (lab_id,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        results = [dict(r) for r in rows]
+        for r in results:
+            r["login_time"] = _utc_to_local_str(r["login_time"])
+        return results
 
 
 # ---------------------------------------------------------------------------
