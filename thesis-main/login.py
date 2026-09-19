@@ -139,6 +139,8 @@ class LoginApp(ctk.CTk):
                     self.handle_decline_student(conn, data)
                 elif "ACTION: GET_TEACHER_STUDENTS" in data:
                     self.handle_get_teacher_students(conn, data)
+                elif "ACTION: GET_ALL_HISTORY" in data:
+                    self.handle_get_all_history(conn)
                     conn.close()
 
                 elif "EXPRESSION:" in data:
@@ -383,6 +385,17 @@ class LoginApp(ctk.CTk):
                 db.end_session(session_id)
         except Exception as e:
             print(f"[ERROR sa logout event]: {e}")
+
+
+    def handle_get_all_history(self, conn):
+        try:
+            history = db.get_all_sessions_history()
+            conn.send(json.dumps(history).encode())
+        except Exception as e:
+            print(f"[ERROR handle_get_all_history]: {e}")
+            conn.send(json.dumps([]).encode())
+        finally:
+            conn.close()        
 
     def handle_get_history(self, conn, data):
         try:
