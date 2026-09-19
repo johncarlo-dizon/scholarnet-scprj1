@@ -479,6 +479,9 @@ class LoginApp(ctk.CTk):
                     db.set_user_lab(user["id"], lab_id)
                     self.current_teacher_lab_id = lab_id
                     self.current_teacher_user_id = user["id"]
+                    self.current_teacher_session_id = db.start_session(
+                        user["id"], lab_id=lab_id, pc_name=socket.gethostname(), ip_address="self"
+                    )
                     dashboard = TeacherDashboard(master_app=self)
                     self.active_teacher_dashboard = dashboard
                     dashboard.protocol("WM_DELETE_WINDOW", lambda: self.on_dashboard_close(dashboard))
@@ -497,6 +500,9 @@ class LoginApp(ctk.CTk):
         if dashboard == self.active_teacher_dashboard:
             self.active_teacher_dashboard = None
             if isinstance(dashboard, TeacherDashboard):
+                if getattr(self, "current_teacher_session_id", None):
+                    db.end_session(self.current_teacher_session_id)
+                    self.current_teacher_session_id = None
                 self.current_teacher_lab_id = None
                 self.current_teacher_user_id = None
                 stop_teacher_streaming()
