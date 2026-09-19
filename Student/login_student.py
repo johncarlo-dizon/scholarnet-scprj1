@@ -305,7 +305,7 @@ class StudentDashboard(ctk.CTkToplevel):
 
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect((TEACHER_IP, LOG_PORT))
+            client.connect((ADMIN_IP, LOG_PORT))
             msg = f"ACTION: CHANGE_PWD | USER: {self.username} | OLDPWD: {old_pwd} | NEWPWD: {new_pwd}"
             client.send(msg.encode())
             response = client.recv(1024).decode().strip()
@@ -325,7 +325,7 @@ class StudentDashboard(ctk.CTkToplevel):
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.settimeout(3)
-            client.connect((TEACHER_IP, LOG_PORT))
+            client.connect((ADMIN_IP, LOG_PORT))
             client.send(f"ACTION: GET_HISTORY | USER: {self.username}".encode())
             response = client.recv(8192).decode()
             client.close()
@@ -414,7 +414,7 @@ class LoginApp(ctk.CTk):
         self.error_label.pack(pady=5)
         
         ctk.CTkButton(self, text="Create an Account", fg_color="transparent", text_color="#1f6aa5", 
-                      command=lambda: RegisterWindow(self, TEACHER_IP, LOG_PORT)).pack(pady=5)
+                      command=lambda: RegisterWindow(self, ADMIN_IP, LOG_PORT)).pack(pady=5)
 
     def load_users(self):
         if os.path.exists(USER_FILE):
@@ -459,7 +459,7 @@ class LoginApp(ctk.CTk):
                                 alert_msg = f"ACTION: SITE_ALERT | USER: {username_val} | TEXT: {current_window} | CATEGORY: {entry['category']}"
                                 try:
                                     a = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                                    a.connect((TEACHER_IP, LOG_PORT))
+                                    a.connect((ADMIN_IP, LOG_PORT))
                                     a.sendall(alert_msg.encode())
                                     a.close()
                                 except Exception:
@@ -525,7 +525,7 @@ class LoginApp(ctk.CTk):
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.settimeout(3)
-            client.connect((TEACHER_IP, LOG_PORT))
+            client.connect((ADMIN_IP, LOG_PORT))
             client.send("ACTION: GET_BLOCKLIST".encode())
             response = client.recv(4096).decode()
             client.close()
@@ -631,7 +631,7 @@ class LoginApp(ctk.CTk):
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.settimeout(3)
-            client.connect((TEACHER_IP, LOG_PORT))
+            client.connect((ADMIN_IP, LOG_PORT))
             client.send("ACTION: GET_TEACHERS".encode())
             response = client.recv(4096).decode()
             client.close()
@@ -649,7 +649,7 @@ class LoginApp(ctk.CTk):
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.settimeout(3)
-            client.connect((TEACHER_IP, LOG_PORT))
+            client.connect((ADMIN_IP, LOG_PORT))
             client.send("ACTION: GET_LABS".encode())
             response = client.recv(4096).decode()
             client.close()
@@ -683,7 +683,7 @@ class LoginApp(ctk.CTk):
 
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect((TEACHER_IP, LOG_PORT))
+            client.connect((ADMIN_IP, LOG_PORT))
 
             msg = f"ACTION: LOGIN_CHECK | USER: {user} | PWD: {pwd} | TEACHERID: {teacher_id} | LABID: {lab_id}"
             client.send(msg.encode())
@@ -720,7 +720,7 @@ class LoginApp(ctk.CTk):
     def notify_teacher(self, action, username):
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect((TEACHER_IP, LOG_PORT))
+            client.connect((ADMIN_IP, LOG_PORT))
             msg = f"ACTION: {action} | USER: {username}"
             client.send(msg.encode())
             client.close()

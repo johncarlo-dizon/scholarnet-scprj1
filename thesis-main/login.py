@@ -20,6 +20,7 @@ db.init_db()
 db.seed_defaults()
 from teacher_dashboard.teacher_screen_sender import start_teacher_streaming, stop_teacher_streaming
 from ui_utils import center_window
+from network_config import ADMIN_IP
 
 class LabSelectionDialog(ctk.CTkToplevel):
     def __init__(self, master, on_selected):
@@ -68,6 +69,7 @@ class LoginApp(ctk.CTk):
         self.broadcast_socket = None
         self.active_teacher_dashboard = None  # <--- Reference para sa student expressions
         self.login_history_data = []
+        self.online_teachers = {}  # lab_id -> {"teacher_id": ...}  (populated on Admin's machine via network)
 
     
         start_persistent_stream_listeners(self)
@@ -120,10 +122,11 @@ class LoginApp(ctk.CTk):
                     conn.close()
                 elif "ACTION: LOGOUT" in data:
                     self.handle_student_logout_event(data)
-                elif "ACTION: GET_BLOCKLIST" in data:
-                    self.handle_get_blocklist(conn)
-                elif "ACTION: SITE_ALERT" in data:
-                    self.handle_site_alert(data)
+                elif "ACTION: TEACHER_ONLINE" in data:
+                    self.handle_teacher_online(data)
+                    conn.close()
+                elif "ACTION: TEACHER_OFFLINE" in data:
+                    self.handle_teacher_offline(data)
                     conn.close()
 
                 elif "EXPRESSION:" in data:
@@ -154,6 +157,53 @@ class LoginApp(ctk.CTk):
             except: 
                 break
 
+    def handle_teacher_online(self, data):
+        try:
+            teacher_id_str = lab_id_str = ""
+            for part in data.split("|"):
+                if "TEACHERID:" in part:
+                    teacher_id_str = part.split("TEACHERID:")[1].strip()
+                elif "LABID:" in part:
+                    lab_id_str = part.split("LABID:")[1].strip()
+            if teacher_id_str.isdigit() and lab_id_str.isdigit():
+                self.online_teachers[int(lab_id_str)] = {"teacher_id": int(teacher_id_str)}
+                print(f"[DEBUG] Teacher {teacher_id_str} is now ONLINE in lab {lab_id_str}")
+        except Exception as e:
+            print(f"[ERROR handle_teacher_online]: {e}")
+
+    def handle_teacher_offline(self, data):
+        try:
+            lab_id_str = ""
+            for part in data.split("|"):
+                if "LABID:" in part:
+                    lab_id_str = part.split("LABID:")[1].strip()
+            if lab_id_str.isdigit():
+                self.online_teachers.pop(int(lab_id_str), None)
+                print(f"[DEBUG] Teacher OFFLINE for lab {lab_id_str}")
+        except Exception as e:
+            print(f"[ERROR handle_teacher_offline]: {e}")
+
+    def _notify_admin_teacher_online(self, teacher_id, lab_id):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(3)
+            s.connect((ADMIN_IP, 5001))
+            s.sendall(f"ACTION: TEACHER_ONLINE | TEACHERID: {teacher_id} | LABID: {lab_id}".encode())
+            s.close()
+        except Exception as e:
+            print(f"[ERROR notifying admin teacher online]: {e}")
+
+    def _notify_admin_teacher_offline(self, lab_id):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(3)
+            s.connect((ADMIN_IP, 5001))
+            s.sendall(f"ACTION: TEACHER_OFFLINE | LABID: {lab_id}".encode())
+            s.close()
+        except Exception as e:
+            print(f"[ERROR notifying admin teacher offline]: {e}")
+
+
     def handle_login_check(self, conn, data):
         try:
             parts = data.split("|")
@@ -179,14 +229,13 @@ class LoginApp(ctk.CTk):
             selected_teacher_id = int(teacher_id_str) if teacher_id_str.isdigit() else None
             selected_lab_id = int(lab_id_str) if lab_id_str.isdigit() else None
 
-            active_teacher_id = getattr(self, "current_teacher_user_id", None)
-            active_lab_id = getattr(self, "current_teacher_lab_id", None)
+            online_entry = self.online_teachers.get(selected_lab_id)
 
-            if active_teacher_id is None:
+            if not online_entry:
                 conn.send("TEACHER_OFFLINE".encode())
                 return
 
-            if selected_teacher_id != active_teacher_id or selected_lab_id != active_lab_id:
+            if online_entry["teacher_id"] != selected_teacher_id:
                 conn.send("LAB_MISMATCH".encode())
                 return
 
@@ -482,6 +531,7 @@ class LoginApp(ctk.CTk):
                     self.current_teacher_session_id = db.start_session(
                         user["id"], lab_id=lab_id, pc_name=socket.gethostname(), ip_address="self"
                     )
+                    self._notify_admin_teacher_online(user["id"], lab_id)
                     dashboard = TeacherDashboard(master_app=self)
                     self.active_teacher_dashboard = dashboard
                     dashboard.protocol("WM_DELETE_WINDOW", lambda: self.on_dashboard_close(dashboard))
@@ -503,6 +553,8 @@ class LoginApp(ctk.CTk):
                 if getattr(self, "current_teacher_session_id", None):
                     db.end_session(self.current_teacher_session_id)
                     self.current_teacher_session_id = None
+                if getattr(self, "current_teacher_lab_id", None) is not None:
+                    self._notify_admin_teacher_offline(self.current_teacher_lab_id)
                 self.current_teacher_lab_id = None
                 self.current_teacher_user_id = None
                 stop_teacher_streaming()
