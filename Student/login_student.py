@@ -612,26 +612,15 @@ class LoginApp(ctk.CTk):
                             break
                         data.extend(packet)
                     
-                    if len(data) == frame_length:
-                        try:
-                            s.setblocking(False)
-                            while True:
-                                extra_header = s.recv(4)
-                                if not extra_header:
-                                    break
-                                extra_len = struct.unpack("!I", extra_header)[0]
-                                extra_data = s.recv(extra_len)
-                                if len(extra_data) == extra_len:
-                                    data = extra_data
-                        except BlockingIOError:
-                            pass
-                        finally:
-                            s.setblocking(True)
-
-                        if self.demo_window and self.demo_window.winfo_exists():
-                            self.after(0, lambda d=bytes(data): self.demo_window.update_frame(d))
+                    if len(data) == frame_length and self.demo_window and self.demo_window.winfo_exists():
+                        self.after(0, lambda d=bytes(data): self.demo_window.update_frame(d))
             except Exception:
                 time.sleep(0.5)
+            finally:
+                try:
+                    s.close()
+                except Exception:
+                    pass
 
     def fetch_blocklist(self):
         try:
