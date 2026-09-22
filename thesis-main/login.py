@@ -127,6 +127,7 @@ class LoginApp(ctk.CTk):
                     conn.close()
                 elif "ACTION: TEACHER_OFFLINE" in data:
                     self.handle_teacher_offline(data)
+                    conn.close()
                 elif "ACTION: GET_USER_INFO" in data:
                     self.handle_get_user_info(conn, data)  
                 elif "ACTION: STAFF_LOGIN_CHECK" in data:
@@ -141,6 +142,11 @@ class LoginApp(ctk.CTk):
                     self.handle_get_teacher_students(conn, data)
                 elif "ACTION: GET_ALL_HISTORY" in data:
                     self.handle_get_all_history(conn)
+                    conn.close()
+                elif "ACTION: GET_BLOCKLIST" in data:
+                    self.handle_get_blocklist(conn)
+                elif "ACTION: SITE_ALERT" in data:
+                    self.handle_site_alert(data)
                     conn.close()
 
                 elif "EXPRESSION:" in data:
