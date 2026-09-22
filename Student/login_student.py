@@ -639,6 +639,8 @@ class LoginApp(ctk.CTk):
         warn.title("WARNING")
         center_window(warn, 450, 220)
         warn.attributes("-topmost", True)
+        warn.resizable(False, False)
+        warn.overrideredirect(True)  # removes the title bar entirely, so there's nothing to grab and drag
         warn.configure(fg_color="#8b0000")
         ctk.CTkLabel(warn, text="⚠ RESTRICTED SITE DETECTED", font=("Arial", 18, "bold"), text_color="white").pack(pady=15)
         ctk.CTkLabel(warn, text=f"Category: {category.upper()}", font=("Arial", 13, "bold"), text_color="yellow").pack()
