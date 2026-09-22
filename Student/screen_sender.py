@@ -23,7 +23,7 @@ def get_current_username():
         pass
     return None
 
-def start_control_listener():
+def start_control_listener(on_pov_start=None, on_pov_stop=None):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("0.0.0.0", 9999))
@@ -44,8 +44,12 @@ def start_control_listener():
                     
                     if line == "START_CONTROL":
                         control_active = True
+                        if on_pov_start:
+                            on_pov_start()
                     elif line == "STOP_CONTROL":
                         control_active = False
+                        if on_pov_stop:
+                            on_pov_stop()
                     elif control_active:
                         if line.startswith("MOVE"):
                             parts = line.split(":")

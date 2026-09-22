@@ -25,6 +25,105 @@ class LockScreen(ctk.CTkToplevel):
         self.title("Terminal Locked")
         ctk.CTkLabel(self, text="TERMINAL LOCKED", font=("Arial", 60, "bold"), text_color="red").pack(expand=True)
 
+
+class TeacherPOVViewer(ctk.CTkToplevel):
+    """Shown to a student only while the teacher is actively Remote
+    Controlling them. Displays the teacher's live screen. Not closable by
+    the student, and excluded from Alt+Tab via overrideredirect."""
+    def __init__(self, master, teacher_ip, broadcast_port):
+        super().__init__(master)
+        self.teacher_ip = teacher_ip
+        self.broadcast_port = broadcast_port
+        self.overrideredirect(True)  # no window frame -> not in Alt+Tab switcher
+        self.attributes("-topmost", True)
+        self.geometry(f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}+0+0")
+
+        self.label = tk.Label(self, bg="black")
+        self.label.pack(fill="both", expand=True)
+
+        self.latest_image = None
+        self._frame_pending = False
+        self.running = True
+        self._sock = None
+
+        self._refocus_loop()
+        threading.Thread(target=self._receive_loop, daemon=True).start()
+
+    def _refocus_loop(self):
+        if not self.running:
+            return
+        try:
+            self.lift()
+            self.focus_force()
+        except Exception:
+            pass
+        self.after(500, self._refocus_loop)
+
+    def _receive_loop(self):
+        while self.running:
+            try:
+                self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                self._sock.connect((self.teacher_ip, self.broadcast_port))
+
+                while self.running:
+                    header = self._sock.recv(4)
+                    if not header:
+                        break
+                    frame_length = struct.unpack("!I", header)[0]
+
+                    data = bytearray()
+                    while len(data) < frame_length:
+                        packet = self._sock.recv(frame_length - len(data))
+                        if not packet:
+                            break
+                        data.extend(packet)
+
+                    if len(data) == frame_length and self.running:
+                        self.after(0, lambda d=bytes(data): self._update_frame(d))
+            except Exception:
+                time.sleep(1)
+            finally:
+                try:
+                    if self._sock:
+                        self._sock.close()
+                except Exception:
+                    pass
+
+    def _update_frame(self, data):
+        if self._frame_pending or not self.running:
+            return
+        self._frame_pending = True
+        try:
+            nparr = np.frombuffer(data, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if frame is not None:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(frame)
+                new_w = self.label.winfo_width()
+                new_h = self.label.winfo_height()
+                if new_w > 10 and new_h > 10:
+                    image = image.resize((new_w, new_h), Image.Resampling.BILINEAR)
+                photo = ImageTk.PhotoImage(image)
+                self.label.config(image=photo)
+                self.label.image = photo
+        except Exception as e:
+            print(f"[ERROR TeacherPOVViewer frame]: {e}")
+        finally:
+            self._frame_pending = False
+
+    def close_pov(self):
+        self.running = False
+        try:
+            if self._sock:
+                self._sock.close()
+        except Exception:
+            pass
+        try:
+            self.destroy()
+        except Exception:
+            pass
+
 class DemoViewer(ctk.CTkToplevel):
     def __init__(self, master=None):
         super().__init__(master)
@@ -386,7 +485,19 @@ class LoginApp(ctk.CTk):
         
         threading.Thread(target=self.start_server, daemon=True).start()
         threading.Thread(target=self.start_broadcast_listener, daemon=True).start()
-        threading.Thread(target=screen_sender.start_control_listener, daemon=True).start()
+        self.pov_viewer = None
+
+        def on_pov_start():
+            self.after(0, self._open_pov_viewer)
+
+        def on_pov_stop():
+            self.after(0, self._close_pov_viewer)
+
+        threading.Thread(
+            target=screen_sender.start_control_listener,
+            kwargs={"on_pov_start": on_pov_start, "on_pov_stop": on_pov_stop},
+            daemon=True,
+        ).start()
         threading.Thread(target=self.track_active_window, daemon=True).start()
         
         ctk.CTkLabel(self, text="CompHub Login", font=("Arial", 25, "bold")).pack(pady=20)
@@ -476,6 +587,18 @@ class LoginApp(ctk.CTk):
             except Exception as e:
                 print(f"[DEBUG STUDENT ACTIVITY ERROR]: {e}")
             time.sleep(3)
+
+
+
+    def _open_pov_viewer(self):
+        if self.pov_viewer and self.pov_viewer.winfo_exists():
+            return
+        self.pov_viewer = TeacherPOVViewer(self, TEACHER_IP, BROADCAST_PORT)
+
+    def _close_pov_viewer(self):
+        if self.pov_viewer:
+            self.pov_viewer.close_pov()
+            self.pov_viewer = None        
 
     def start_broadcast_listener(self):
         while True:
