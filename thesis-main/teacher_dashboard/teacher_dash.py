@@ -31,7 +31,8 @@ class TeacherDashboard(ctk.CTkToplevel):
         self.student_cards = {}
         self.login_history_data = []
         self.active_viewers = {}  
-        self.is_broadcasting_demo = False  
+        self.is_broadcasting_demo = False 
+        self.share_screen_btn = None 
         self.btn_fullscreen_demo = None  
         self.student_histories = {} 
         
@@ -55,6 +56,7 @@ class TeacherDashboard(ctk.CTkToplevel):
         
         toolbar_items = [
             ("Monitoring", None),
+            ("Share Screen", self.toggle_share_screen),
             ("Lock", self.lock_all_students),
             ("Unlock", self.unlock_all_students),
             ("Logout user", None),
@@ -88,7 +90,8 @@ class TeacherDashboard(ctk.CTkToplevel):
 
             btn = ctk.CTkButton(self.top_toolbar, **btn_kwargs)
             btn.pack(side="left", padx=1, pady=5)
-            
+            if btn_text == "Share Screen":
+                self.share_screen_btn = btn
 
         # --- TEST BUTTON PARA SA INBOX ---
         test_inbox_btn = ctk.CTkButton(
@@ -121,6 +124,21 @@ class TeacherDashboard(ctk.CTkToplevel):
         
         self.search_entry = ctk.CTkEntry(self.bottom_bar, placeholder_text="Search users and computers", width=220)
         self.search_entry.pack(side="left", padx=15, pady=5)
+
+    def toggle_share_screen(self):
+        targets = list(self.student_cards.keys())
+        if not self.is_broadcasting_demo:
+            self.is_broadcasting_demo = True
+            if self.share_screen_btn:
+                self.share_screen_btn.configure(text="Stop Sharing", fg_color="#a83232", hover_color="#c94444")
+            for ip in targets:
+                send_command(ip, "START_DEMO")
+        else:
+            self.is_broadcasting_demo = False
+            if self.share_screen_btn:
+                self.share_screen_btn.configure(text="Share Screen", fg_color="#383838", hover_color="#505050")
+            for ip in targets:
+                send_command(ip, "STOP_DEMO")
 
     def add_test_log(self):
         """Pansamantalang function para magdagdag ng dummy log at i-test ang Inbox UI"""

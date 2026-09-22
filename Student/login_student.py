@@ -127,58 +127,59 @@ class TeacherPOVViewer(ctk.CTkToplevel):
 class DemoViewer(ctk.CTkToplevel):
     def __init__(self, master=None):
         super().__init__(master)
-        self.title("Teacher Fullscreen Demo - Live Stream")
-        self.attributes("-fullscreen", True)
+        self.overrideredirect(True)
         self.attributes("-topmost", True)
-        
+        self.geometry(f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}+0+0")
+
         self.video_label = tk.Label(self, bg="black")
         self.video_label.pack(fill="both", expand=True)
-        
+
         self.latest_image = None
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
-        self.bind("<Escape>", lambda e: self.on_close())
-        self.video_label.bind("<Configure>", self.on_resize)
+        self._frame_pending = False
+        self.running = True
+
+        self._refocus_loop()
+
+    def _refocus_loop(self):
+        if not self.running:
+            return
+        try:
+            self.lift()
+            self.focus_force()
+        except Exception:
+            pass
+        self.after(500, self._refocus_loop)
 
     def update_frame(self, data):
+        if self._frame_pending or not self.running:
+            return
+        self._frame_pending = True
         try:
             nparr = np.frombuffer(data, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            if frame is None:
-                return
-            
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            image = Image.fromarray(frame)
-            self.latest_image = image
-            
-            new_w = self.video_label.winfo_width()
-            new_h = self.video_label.winfo_height()
-            
-            if new_w > 10 and new_h > 10:
-                image = image.resize((new_w, new_h), Image.Resampling.BILINEAR)
-                
-            photo = ImageTk.PhotoImage(image)
-            self.video_label.config(image=photo)
-            self.video_label.image = photo 
-        except Exception as e:
-            print(f"Error sa pag-update ng live demo frame: {e}")
+            if frame is not None:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(frame)
+                self.latest_image = image
 
-    def on_resize(self, event):
-        if self.latest_image:
-            try:
                 new_w = self.video_label.winfo_width()
                 new_h = self.video_label.winfo_height()
                 if new_w > 10 and new_h > 10:
-                    resized_img = self.latest_image.resize((new_w, new_h), Image.Resampling.BILINEAR)
-                    photo = ImageTk.PhotoImage(resized_img)
-                    self.video_label.config(image=photo)
-                    self.video_label.image = photo
-            except:
-                pass
+                    image = image.resize((new_w, new_h), Image.Resampling.BILINEAR)
 
-    def on_close(self):
+                photo = ImageTk.PhotoImage(image)
+                self.video_label.config(image=photo)
+                self.video_label.image = photo
+        except Exception as e:
+            print(f"Error sa pag-update ng live demo frame: {e}")
+        finally:
+            self._frame_pending = False
+
+    def close_demo(self):
+        self.running = False
         try:
-            self.withdraw()
-        except:
+            self.destroy()
+        except Exception:
             pass
 
 class RegisterWindow(ctk.CTkToplevel):
@@ -485,19 +486,7 @@ class LoginApp(ctk.CTk):
         
         threading.Thread(target=self.start_server, daemon=True).start()
         threading.Thread(target=self.start_broadcast_listener, daemon=True).start()
-        self.pov_viewer = None
-
-        def on_pov_start():
-            self.after(0, self._open_pov_viewer)
-
-        def on_pov_stop():
-            self.after(0, self._close_pov_viewer)
-
-        threading.Thread(
-            target=screen_sender.start_control_listener,
-            kwargs={"on_pov_start": on_pov_start, "on_pov_stop": on_pov_stop},
-            daemon=True,
-        ).start()
+        threading.Thread(target=screen_sender.start_control_listener, daemon=True).start()
         threading.Thread(target=self.track_active_window, daemon=True).start()
         
         ctk.CTkLabel(self, text="CompHub Login", font=("Arial", 25, "bold")).pack(pady=20)
@@ -713,12 +702,11 @@ class LoginApp(ctk.CTk):
     def open_demo_viewer(self):
         if not self.demo_window or not self.demo_window.winfo_exists():
             self.demo_window = DemoViewer(self)
-        else:
-            self.demo_window.deiconify()
 
     def close_demo_viewer(self):
         if self.demo_window and self.demo_window.winfo_exists():
-           self.demo_window.withdraw()
+            self.demo_window.close_demo()
+            self.demo_window = None
 
     def show_lock(self):
         if not self.active_lock:

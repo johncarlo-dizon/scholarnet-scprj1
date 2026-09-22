@@ -23,7 +23,7 @@ def get_current_username():
         pass
     return None
 
-def start_control_listener(on_pov_start=None, on_pov_stop=None):
+def start_control_listener():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("0.0.0.0", 9999))
